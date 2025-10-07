@@ -1,0 +1,27 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, std430) buffer positionBuffer{
+	vec2 calculatedPos[];
+};
+
+uniform vec2 position; 
+float k = 1;
+
+vec2 calculateElectricFieldContribution(float q, vec2 gridPos){
+	float r = distance(gridPos, position);
+	if (r < 0.001) return vec2(0);
+	vec2 u = vec2(gridPos.x - position.x, gridPos.y - position.y)/r;
+	float E = k*q/(r*r);
+
+	return E * u;
+}
+
+void main(){
+	vec2 gridSize = gl_NumWorkGroups.xy * gl_WorkGroupSize.xy;
+	vec2 gridPos = vec2(gl_GlobalInvocationID.xy)/vec2(gridSize);
+	gridPos = (gridPos -.5)*2; // now it goes from -1 to 1 from both sides
+	uint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y*gridSize.x));
+	calculatedPos[id] = calculateElectricFieldContribution(1, gridPos);
+}

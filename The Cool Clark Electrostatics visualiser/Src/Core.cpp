@@ -1,0 +1,132 @@
+#include <glad/glad.h>
+#include "Core.h"
+#include "utils.h"
+#include <string>
+
+#define GRID_WIDTH 32
+#define GRID_HEIGHT 32
+
+void Core::SetUp()
+{
+	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
+	sourceObjects.push_back(std::make_unique<pointCharge2D>(glm::vec2(0, -0.5), 1, *basicShader));
+	basicShader->UseProgram();
+	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
+	// temporary solution for position
+
+	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT);
+
+	computeManager->ComputeContributions();
+	
+	// renderer
+	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
+		GRID_WIDTH, GRID_HEIGHT);
+}
+
+void Core::MainLoop()
+{
+	glClearColor(0.3, 0.6, 0.1, 1.0);
+	// the holy loop!!
+	while (!glfwWindowShouldClose(window)) {
+		glClear(GL_COLOR_BUFFER_BIT);
+		// ANIMATION PART <-- TEMPORARY FOR TODAY CUZ I WANNA SEE MY STUFF WORK!!
+		float _time = glfwGetTime();
+		glm::vec2 newPos = glm::vec2(glm::cos(_time/3)/1.65, glm::sin(_time/3)/1.7);
+		sourceObjects[0]->MoveTo(newPos);
+		computeManager->computeShaderID->UseProgram();
+		computeManager->computeShaderID->SetVec2("position", sourceObjects[0]->GetPos());
+		// COMPUTE PART
+		computeManager->ComputeContributions();
+
+
+		// RENDER  PART
+		renderer->DrawGrid();
+		renderer->DrawShapes();
+
+		// ETC
+		glfwSwapBuffers(window);
+		HandleIKeyboardnput();
+		glfwPollEvents();
+	}
+}
+
+// initialise glfw
+Core::Core(int width, int height, const char* title): 
+	windowWidth(width), windowHeight(height){
+	if (width < 1 || height < 1 || title == nullptr) {
+		ErrorMessage("Invalid inputs when creating CORE");
+	}
+
+	// set up glfw
+	glfwInit();
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+	// create window
+	window = glfwCreateWindow(width, height, title, NULL, NULL);
+
+	if (!window) {
+		ErrorMessage("Could Not Create GLFW WINDOW");
+		glfwTerminate();
+	}
+	glfwMakeContextCurrent(window);
+
+	// load glad functions
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		ErrorMessage("Could Not Set Up GLAD");
+		glfwTerminate();
+	}
+
+
+	// some cool coolbacks
+	glfwSetErrorCallback(GLFWErrorCallback);
+	glfwSetWindowSizeCallback(window, GLFWWindowSizeCallback);
+	glfwSetCursorPosCallback(window, GLFWMouseCallback);
+		
+	glfwSetWindowUserPointer(window, this);
+
+	glViewport(0, 0, width, height);
+
+	// enabling stuff and configuing it here
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+Core::~Core()
+{
+
+}
+//					---------- the callbacks ----------
+void Core::GLFWErrorCallback(int error, const char* description)
+{
+	ErrorMessage("GLFW ERROR: " + std::string(description));
+}
+
+// bounce function for windowSize
+void Core::GLFWWindowSizeCallback(GLFWwindow* window, int width, int height)
+{
+	glViewport(0, 0, width, height);
+	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
+	if (myCore)
+		myCore->GLFWWindowSizeCallbackBounce(window, width, height);
+}
+
+void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int height) {
+	windowWidth = width;
+	windowHeight = height;
+
+	basicShader->UseProgram();
+	Info(std::to_string((float)windowWidth / (float)windowHeight));
+	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
+}
+
+void Core::GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos)
+{
+	// TODO: make something with this!
+}
+
+void Core::HandleIKeyboardnput() {
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+}
