@@ -5,16 +5,18 @@
 
 Renderer::Renderer(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 	unsigned int positionBuffer, const char* vertexShaderPath, const char* fragmentShaderPath,
-	unsigned int gridWidth, unsigned int gridHeight) :
-	sourceObjects(sourceObjects), gridWidth(gridWidth), gridHeight(gridHeight), positionBuffer(positionBuffer),
+	unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength) :
+	sourceObjects(sourceObjects), gridWidth(gridWidth), gridHeight(gridHeight), gridLength(gridLength),
+	positionBuffer(positionBuffer),
 	VAO(0)
 {
 	gridShader = std::make_unique<Shader>(vertexShaderPath, fragmentShaderPath);
-	gridSize = gridWidth * gridHeight;
+	gridSize = gridWidth * gridHeight * gridLength;
 
 	gridShader->UseProgram();
 	gridShader->SetInt("gridWidth", gridWidth);
 	gridShader->SetInt("gridHeight", gridHeight);
+	gridShader->SetInt("gridLength", gridLength);
 
 	glGenVertexArrays(1, &VAO);
 }

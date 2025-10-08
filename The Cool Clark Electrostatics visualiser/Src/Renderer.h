@@ -15,11 +15,11 @@ public:
 	unsigned int positionBuffer;
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
 	std::unique_ptr<Shader> gridShader;
-	unsigned int gridWidth, gridHeight;
+	unsigned int gridWidth, gridHeight, gridLength;
 	unsigned int gridSize;
 	Renderer(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 		unsigned int positionBuffer, const char* vertexShaderPath, const char* fragmentShaderPath,
-		unsigned int gridWidth, unsigned int gridHeight);
+		unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength);
 	~Renderer();
 	void DrawGrid();
 	void DrawShapes();
