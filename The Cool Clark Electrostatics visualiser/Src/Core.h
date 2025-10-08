@@ -18,6 +18,7 @@ public:
 	Core(int width, int height, const char* title);
 	~Core();
 
+	double deltaTime = 0.0;
 
 	std::unique_ptr<Shader> basicShader;
 	std::unique_ptr<ComputeManager> computeManager;
