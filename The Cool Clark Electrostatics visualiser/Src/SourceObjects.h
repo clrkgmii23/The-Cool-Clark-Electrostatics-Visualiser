@@ -3,42 +3,27 @@
 #include <glm/glm.hpp>
 #include "Shader.h"
 
-// generic vector, can be any dimention
-template<int DIM>
-struct Vec;
-
-template<>
-struct Vec <2>
-{
-	using type = glm::vec2;
-};
-template<>
-struct Vec <3>
-{
-	using type = glm::vec3;
-};
-
 // a kind of "container class" so I can group all Source Objects into one vector
 class ISourceObject {
 public:
 	virtual void Draw() = 0;
 	virtual void ComputeElectricFieldContribution() = 0;
-	virtual glm::vec2 GetPos() { return glm::vec2(0); };
-	virtual void MoveTo(glm::vec2 trans) = 0;
+	virtual glm::vec3 GetPos() { return glm::vec3(0); };
+	virtual void MoveTo(glm::vec3 trans) = 0;
 	virtual ~ISourceObject() = default;
 };
 
-template<typename DERIVED, int DIM>
+template<typename DERIVED>
 class SourceObject : public ISourceObject {
 public:
 	Shader& shader;
 
 	// every object needs a position and a charge
-	typename Vec<DIM>::type pos;
+	glm::vec3 pos;
 	double charge;
 
 
-	SourceObject(typename Vec<DIM>::type &pos, float charge, Shader& shader): charge(charge), shader(shader),
+	SourceObject( glm::vec3 &pos, float charge, Shader& shader): charge(charge), shader(shader),
 	pos(pos)
 	{
 		if (counter == 0) {
@@ -69,8 +54,8 @@ public:
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesSize, indices, GL_STATIC_DRAW);
 
-		// VAO
-		glVertexAttribPointer(0, DIM, GL_FLOAT, GL_FALSE, sizeof(float) * DIM, (void*)0);
+		// VAO - currenty holdes x y z coords
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
 		glEnableVertexAttribArray(0);
 		glBindVertexArray(0);
 
@@ -83,7 +68,7 @@ public:
 
 		glBindVertexArray(VAO);
 		shader.UseProgram();
-		shader.SetVec2("position", pos); // <-- TODO: REMOVE this, it's for testing
+		shader.SetVec3("position", pos); // <-- TODO: REMOVE this, it's for testing
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);	
 	}
@@ -93,9 +78,9 @@ public:
 	virtual void ComputeElectricFieldContribution() = 0; // for later
 
 	// other stuff
-	glm::vec2 GetPos() override { return pos;};
+	glm::vec3 GetPos() override { return pos;};
 
-	void MoveTo(glm::vec2 trans) override {
+	void MoveTo(glm::vec3 trans) override {
 		pos = trans;
 	}
 
@@ -111,31 +96,31 @@ private:
 };
 
 // static stuff need to be declared outside of function for whatever reason
-template<typename DERIVED, int DIM>
-unsigned int SourceObject<DERIVED, DIM>::VAO = 0;
+template<typename DERIVED>
+unsigned int SourceObject<DERIVED>::VAO = 0;
 
-template<typename DERIVED, int DIM>
-unsigned int SourceObject<DERIVED, DIM>::VBO = 0;
+template<typename DERIVED>
+unsigned int SourceObject<DERIVED>::VBO = 0;
 
-template<typename DERIVED, int DIM>
-unsigned int SourceObject<DERIVED, DIM>::EBO = 0;
+template<typename DERIVED>
+unsigned int SourceObject<DERIVED>::EBO = 0;
 
-template<typename DERIVED, int DIM>
-int SourceObject<DERIVED, DIM>::indicesCount = 0;
+template<typename DERIVED>
+int SourceObject<DERIVED>::indicesCount = 0;
 
-template<typename DERIVED, int DIM>
-int SourceObject<DERIVED, DIM>::counter= 0;
+template<typename DERIVED>
+int SourceObject<DERIVED>::counter= 0;
 
 
 // now every object should add an initialSetUp, where it sets up the vertex and element buffer
 // and then call AfterSetUp and it should be good to go
 
-class pointCharge2D : public SourceObject<pointCharge2D, 2> {
+class pointCharge : public SourceObject<pointCharge> {
 
 public:
 
-	pointCharge2D(glm::vec2 pos, float charge, Shader& shader) 
-		: SourceObject<pointCharge2D, 2>(pos, charge, shader){}
+	pointCharge(glm::vec3 pos, float charge, Shader& shader) 
+		: SourceObject<pointCharge>(pos, charge, shader){}
 
 	void initialSetUp() {
 
@@ -143,10 +128,10 @@ public:
 
 		// 4 points to make a square, fragment shader will take the rest and make it round
 		float vertices[] = {
-			 .5,  .5,
-			-.5,  .5,
-			 .5, -.5,
-			-.5, -.5
+			 .5,  .5, 0,
+			-.5,  .5, 0,
+			 .5, -.5, 0,
+			-.5, -.5, 0
 		};
 
 		unsigned int indices[] = {

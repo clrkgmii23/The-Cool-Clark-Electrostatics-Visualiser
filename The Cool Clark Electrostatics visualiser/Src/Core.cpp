@@ -5,22 +5,22 @@
 
 #define GRID_WIDTH 32
 #define GRID_HEIGHT 32
+#define GRID_LENGTH 1
 
 void Core::SetUp()
 {
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
-	sourceObjects.push_back(std::make_unique<pointCharge2D>(glm::vec2(0, -0.5), 1, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, -0.5, 0), 0, *basicShader));
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 	// temporary solution for position
 
-	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT);
+	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
 
 	computeManager->ComputeContributions();
-	
 	// renderer
 	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
-		GRID_WIDTH, GRID_HEIGHT);
+		GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
 }
 
 void Core::MainLoop()
@@ -31,10 +31,10 @@ void Core::MainLoop()
 		glClear(GL_COLOR_BUFFER_BIT);
 		// ANIMATION PART <-- TEMPORARY FOR TODAY CUZ I WANNA SEE MY STUFF WORK!!
 		float _time = glfwGetTime();
-		glm::vec2 newPos = glm::vec2(glm::cos(_time/3)/1.65, glm::sin(_time/3)/1.7);
+		glm::vec3 newPos = glm::vec3(glm::cos(_time/3)/1.65, glm::sin(_time/3)/1.7, -1);
 		sourceObjects[0]->MoveTo(newPos);
 		computeManager->computeShaderID->UseProgram();
-		computeManager->computeShaderID->SetVec2("position", sourceObjects[0]->GetPos());
+		computeManager->computeShaderID->SetVec3("position", sourceObjects[0]->GetPos());
 		// COMPUTE PART
 		computeManager->ComputeContributions();
 
@@ -62,6 +62,7 @@ Core::Core(int width, int height, const char* title):
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_SAMPLES, 4); // anti aliasing
 
 	// create window
 	window = glfwCreateWindow(width, height, title, NULL, NULL);
@@ -87,6 +88,9 @@ Core::Core(int width, int height, const char* title):
 	glfwSetWindowUserPointer(window, this);
 
 	glViewport(0, 0, width, height);
+
+	// enabling anti aliasing 
+	glEnable(GL_MULTISAMPLE);
 
 	// enabling stuff and configuing it here
 	glEnable(GL_BLEND);
@@ -117,7 +121,7 @@ void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int heigh
 	windowHeight = height;
 
 	basicShader->UseProgram();
-	Info(std::to_string((float)windowWidth / (float)windowHeight));
+	//Info(std::to_string((float)windowWidth / (float)windowHeight));
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 }
 

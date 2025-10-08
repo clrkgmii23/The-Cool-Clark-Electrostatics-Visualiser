@@ -17,9 +17,9 @@
 class ComputeManager {
 public:
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
-	unsigned int gridWidth, gridHeight;
+	unsigned int gridWidth, gridHeight, gridLength;
 	unsigned int positionBuffer; // buffer for grid vector positions
 	std::unique_ptr<ComputeShader> computeShaderID;
-	ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, unsigned int gridWidth, unsigned int gridHeight);
+	ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength);
 	void ComputeContributions();
 };
