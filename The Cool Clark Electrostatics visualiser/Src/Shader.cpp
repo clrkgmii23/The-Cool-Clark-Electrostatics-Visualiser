@@ -122,9 +122,12 @@ unsigned int Shader::GetLoc(const char* name)
 
 
 //							    COMPUTE SHADER IMPLEMENTATION
-ComputeShader::ComputeShader(const char* sourcePath)
-{
-	std::string computeShaderSource = ReadFile(sourcePath);
+
+
+ComputeShader::ComputeShader(const char* sourcePath): ComputeShader(ReadFile(sourcePath))
+	{}
+
+ComputeShader::ComputeShader(const std::string& computeShaderSource) {
 	const char* c_computeShader = computeShaderSource.c_str();
 	unsigned int computeShader = SetUpShader(c_computeShader, GL_COMPUTE_SHADER);
 	program = glCreateProgram();
@@ -133,7 +136,6 @@ ComputeShader::ComputeShader(const char* sourcePath)
 	checkProgramError(program);
 	glDeleteShader(computeShader);
 }
-
 void ComputeShader::Compute(unsigned int x, unsigned int y, unsigned int z, unsigned int BARRIER_BIT = GL_SHADER_STORAGE_BARRIER_BIT)
 {
 	this->UseProgram();

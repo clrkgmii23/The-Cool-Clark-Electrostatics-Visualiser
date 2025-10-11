@@ -25,6 +25,9 @@ private:
 
 class ComputeShader : public Shader{
 public:
+	// kind of a dumb design, if you pass you pass a const char, it considers it a path
+	// if you pass a string, it considers it a source
 	ComputeShader(const char* sourcePath);
+	ComputeShader(const std::string& computeShaderSource);
 	void Compute(unsigned int x, unsigned int y, unsigned int z, unsigned int BARRIER_BIT);
 };

@@ -1,0 +1,25 @@
+// this file is going to serve as a container for all the compute shader function that will be used
+// in this program, and it should follow the convention of having a struct of an obeject defined,
+// and right after it corrospoding function, ei its electric field, its magnetic field or potential.
+// the struct needs to exist before the definitions, in order to generate the full compute shader 
+// correctly. the end of a struct must end with "};" and a function must end with a single "}"
+
+#version 430 core // these are here just to make the linter not red and angry
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
+
+float k = 1;
+
+// Point Charge
+struct PointCharge{ // this will take 32 bytes
+	vec3 position;
+	float charge;
+};
+//
+vec3 PointChargeElectricField(PointCharge pointcharge, vec3 gridPos){
+	float r = distance(gridPos, pointcharge.position);
+	if (r < 0.001) return vec3(0);
+	vec3 u = vec3(gridPos.x - pointcharge.position.x, gridPos.y - pointcharge.position.y,
+	gridPos.z - pointcharge.position.z)/r;
+	float E = k*pointcharge.charge/(r*r);
+	return E*vec3(u);
+}

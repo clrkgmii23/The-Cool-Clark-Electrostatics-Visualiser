@@ -3,17 +3,17 @@
 #include "utils.h"
 #include <string>
 
-#define GRID_WIDTH 32
-#define GRID_HEIGHT 32
+#define GRID_WIDTH 64
+#define GRID_HEIGHT 64
 #define GRID_LENGTH 1
 
 void Core::SetUp()
 {
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, -0.5, 0), 0, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(-0.5, 0.0, 0), 1, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.5, 0.0, 0), 1, *basicShader));
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
-	// temporary solution for position
 
 	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
 
@@ -21,6 +21,7 @@ void Core::SetUp()
 	// renderer
 	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
 		GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
+
 }
 
 void Core::MainLoop()
@@ -29,12 +30,7 @@ void Core::MainLoop()
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		// ANIMATION PART <-- TEMPORARY FOR TODAY CUZ I WANNA SEE MY STUFF WORK!!
-		float _time = glfwGetTime();
-		glm::vec3 newPos = glm::vec3(glm::cos(_time/3)/1.65, glm::sin(_time/3)/1.7, -1);
-		sourceObjects[0]->MoveTo(newPos);
-		computeManager->computeShaderID->UseProgram();
-		computeManager->computeShaderID->SetVec3("position", sourceObjects[0]->GetPos());
+		
 		// COMPUTE PART
 		computeManager->ComputeContributions();
 

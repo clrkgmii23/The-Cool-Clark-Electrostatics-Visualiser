@@ -1,6 +1,6 @@
 #version 430 core
 
-layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
 
 layout (binding = 0, std430) buffer positionBuffer{
 	vec3 calculatedPos[];
@@ -12,16 +12,16 @@ float k = 1;
 vec3 calculateElectricFieldContribution(float q, vec3 gridPos){
 	float r = distance(gridPos, position);
 	if (r < 0.001) return vec3(0);
-	vec3 u = vec3(gridPos-position)/r;
+	vec3 u = vec3(gridPos.x - position.x, gridPos.y - position.y,
+	gridPos.z - position.z)/r;
 	float E = k*q/(r*r);
-
 	return E * u;
 }
 
 void main(){
 	vec3 gridSize = gl_NumWorkGroups.xyz * gl_WorkGroupSize.xyz;
-	vec3 gridPos = vec3(gl_GlobalInvocationID.xyz)/vec3(gridSize); // (normalized)
+	vec3 gridPos = vec3(gl_GlobalInvocationID)/(gridSize);
 	gridPos = (gridPos -.5)*2; // now it goes from -1 to 1 from both sides
-	uint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y*gridSize.x)); // TODO: make this work with z too
+	uint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y*gridSize.x) + gl_GlobalInvocationID.z * gridSize.x * gridSize.y);
 	calculatedPos[id] = calculateElectricFieldContribution(1, gridPos);
 }

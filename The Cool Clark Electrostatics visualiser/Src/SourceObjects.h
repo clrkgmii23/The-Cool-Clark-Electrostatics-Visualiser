@@ -2,28 +2,35 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include "Shader.h"
-
+#include "fstream"
+#include "utils.h"
 // a kind of "container class" so I can group all Source Objects into one vector
 class ISourceObject {
 public:
+	unsigned int buffer_pos = 0;
+
+
 	virtual void Draw() = 0;
-	virtual void ComputeElectricFieldContribution() = 0;
-	virtual glm::vec3 GetPos() { return glm::vec3(0); };
+	virtual std::string ElectricFieldContribution() = 0;
+	virtual void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) = 0;
+	virtual glm::vec3 GetPos() { return glm::vec3(0);};
 	virtual void MoveTo(glm::vec3 trans) = 0;
+	virtual int GetStructSize() = 0;
+	virtual void store(unsigned int buffer, int buf_pos, int own_pos, unsigned size, const void* data) = 0;
+	std::string typeID;
+	int uniqueId;
 	virtual ~ISourceObject() = default;
+	
 };
 
-template<typename DERIVED>
+template<typename DERIVED, typename DERIVEDSTRUCT>
 class SourceObject : public ISourceObject {
 public:
-	Shader& shader;
-
-	// every object needs a position and a charge
+	Shader& shader; 
+	// every object needs a position
 	glm::vec3 pos;
-	double charge;
 
-
-	SourceObject( glm::vec3 &pos, float charge, Shader& shader): charge(charge), shader(shader),
+	SourceObject( glm::vec3 &pos, Shader& shader): shader(shader),
 	pos(pos)
 	{
 		if (counter == 0) {
@@ -36,7 +43,7 @@ public:
 		counter--;
 		if (counter != 0) return;
 		glDeleteBuffers(1, &VBO);
-		glDeleteBuffers(1, &VAO);
+		glDeleteVertexArrays(1, &VAO);
 		glDeleteBuffers(1, &EBO);
 	}
 
@@ -63,30 +70,79 @@ public:
 	}
 
 	// drawing aspect
+	// TODO: implement this crap
 	virtual void Draw() {
-
-
 		glBindVertexArray(VAO);
 		shader.UseProgram();
-		shader.SetVec3("position", pos); // <-- TODO: REMOVE this, it's for testing
+		shader.SetVec3("position", pos);
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);	
 	}
 
+	glm::vec3 GetPos() override { return pos; };
 
-	// computing aspect
-	virtual void ComputeElectricFieldContribution() = 0; // for later
-
-	// other stuff
-	glm::vec3 GetPos() override { return pos;};
 
 	void MoveTo(glm::vec3 trans) override {
 		pos = trans;
 	}
 
+	// computing aspect
+	virtual std::string ElectricFieldContribution() {
+
+		// super hacky and jank way of getting the function definition from a file, but works
+		std::ifstream file("Src/Shaders/SODefinitions.comp");
+		if (!file.is_open()) {
+			ErrorMessage("Could Not Open Source Object Definitions File");
+		}
+		std::string funcDef;
+		std::string line;
+		bool found = false;
+		// function name is typeID + "ElectricField"
+		std::string funcName = "vec3 " + typeID + "ElectricField";
+		std::string structName = "struct " + typeID;
+		while (std::getline(file, line)) {
+			if (found) break;
+			if (line.compare(0, funcName.length(), funcName) == 0) {
+				funcDef += line + "\n";
+				while (std::getline(file, line)) {
+					funcDef += line + "\n";
+					if (line == "}") {
+						found = true;
+						break;
+						}
+					}
+			}
+			else if (line.compare(0, structName.length(), structName) == 0) {
+				// struct
+				funcDef += line + "\n";
+				while (std::getline(file, line)) {
+					funcDef += line + "\n";
+					if (line == "};") {
+						funcDef += "\n";
+						break;
+					}
+				}
+			}
+		}
+
+		file.close();
+		if (!found) ErrorMessage("Could Not Find Function Definition For " + funcName);
+
+		funcDef += "\n\n";
+		return funcDef; 
+	}
+
+	int GetStructSize() {
+		return sizeof(DERIVEDSTRUCT);
+	}
+
+	void store(unsigned int buffer, int buf_pos, int own_pos, unsigned size, const void* data) override {
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, buf_pos + own_pos * size, size, data);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	}
 private:
 
-	//
 	static unsigned int VAO;
 	static unsigned int VBO;
 	static unsigned int EBO;
@@ -96,36 +152,40 @@ private:
 };
 
 // static stuff need to be declared outside of function for whatever reason
-template<typename DERIVED>
-unsigned int SourceObject<DERIVED>::VAO = 0;
+template<typename DERIVED, typename DERIVEDSTRUCT>
+unsigned int SourceObject<DERIVED, DERIVEDSTRUCT>::VAO = 0;
 
-template<typename DERIVED>
-unsigned int SourceObject<DERIVED>::VBO = 0;
+template<typename DERIVED, typename DERIVEDSTRUCT>
+unsigned int SourceObject<DERIVED, DERIVEDSTRUCT>::VBO = 0;
 
-template<typename DERIVED>
-unsigned int SourceObject<DERIVED>::EBO = 0;
+template<typename DERIVED, typename DERIVEDSTRUCT>
+unsigned int SourceObject<DERIVED, DERIVEDSTRUCT>::EBO = 0;
 
-template<typename DERIVED>
-int SourceObject<DERIVED>::indicesCount = 0;
+template<typename DERIVED, typename DERIVEDSTRUCT>
+int SourceObject<DERIVED, DERIVEDSTRUCT>::indicesCount = 0;
 
-template<typename DERIVED>
-int SourceObject<DERIVED>::counter= 0;
+template<typename DERIVED, typename DERIVEDSTRUCT>
+int SourceObject<DERIVED, DERIVEDSTRUCT>::counter = 0;
 
+// now every object should just follow the structure of this point charge class
 
-// now every object should add an initialSetUp, where it sets up the vertex and element buffer
-// and then call AfterSetUp and it should be good to go
+struct alignas(16) PointChargeStruct { // this will take 32 bytes
+	glm::vec3 position;
+	float _charge;
+};
 
-class pointCharge : public SourceObject<pointCharge> {
+class pointCharge : public SourceObject<pointCharge, PointChargeStruct> {
 
 public:
-
-	pointCharge(glm::vec3 pos, float charge, Shader& shader) 
-		: SourceObject<pointCharge>(pos, charge, shader){}
+	// properties
+	float charge = 1.0f;
+	pointCharge(glm::vec3 pos, float charge, Shader& shader)
+		: SourceObject<pointCharge, PointChargeStruct>(pos, shader) {
+		typeID = "PointCharge";
+		this->charge = charge;
+	}
 
 	void initialSetUp() {
-
-		shader.UseProgram(); 
-
 		// 4 points to make a square, fragment shader will take the rest and make it round
 		float vertices[] = {
 			 .5,  .5, 0,
@@ -142,7 +202,18 @@ public:
 		AfterSetUp(sizeof(vertices), vertices, sizeof(indices), indices);
 	}
 
-	void ComputeElectricFieldContribution() override {
-		
+	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
+
+		PointChargeStruct pointCharge = { pos, charge };
+		int size = GetStructSize();
+
+		this->store(buffer, buf_pos, own_pos, size, &pointCharge);
+
+		Info("sending: buffer = " + std::to_string(buffer) + ", buf_pos = " + std::to_string(buf_pos) +
+			", own_pos = " + std::to_string(own_pos) + ", size = " + std::to_string(size) +
+			", data = { " + std::to_string(pointCharge.position.x) + ", " +
+			std::to_string(pointCharge.position.y) + ", " +
+			std::to_string(pointCharge.position.z) + ", " +
+			std::to_string(pointCharge._charge) + " }");
 	}
 };

@@ -32,7 +32,6 @@ void Renderer::DrawShapes()
 	for (auto& SObject : sourceObjects)
 	{
 		SObject->Draw();
-		Info(std::to_string(SObject->GetPos().x));
 	}
 }
 
