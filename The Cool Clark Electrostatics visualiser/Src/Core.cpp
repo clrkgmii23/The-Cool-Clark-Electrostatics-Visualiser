@@ -12,11 +12,13 @@ void Core::SetUp()
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
 	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(-0.5, 0.0, 0), 1, *basicShader));
 	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.5, 0.0, 0), -1, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, 0.5, 0), -1, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, -0.5, 0), 1, *basicShader));
+	//sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.0, 0.1, 0),  1, *basicShader));
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 
 	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
-
 	computeManager->ComputeContributions();
 	// renderer
 	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
@@ -30,10 +32,9 @@ void Core::MainLoop()
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
-
 		sourceObjects[0]->MoveTo(glm::vec3(0.5f * sin((float)glfwGetTime()), 0.5f * cos((float)glfwGetTime()), 0));
 		sourceObjects[1]->MoveTo(glm::vec3(-0.5f * sin((float)glfwGetTime()), -0.5f * cos((float)glfwGetTime()), 0));
+
 		// COMPUTE PART
 		computeManager->ComputeContributions();
 

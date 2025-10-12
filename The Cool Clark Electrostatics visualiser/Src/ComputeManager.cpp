@@ -2,6 +2,9 @@
 #include "ComputeManager.h"
 #include <format>
 
+
+int ISourceObject::SSBObuffer = -1; // c++ quirk
+
 ComputeManager::ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength):
 	sourceObjects(sourceObjects), gridWidth(gridWidth), gridHeight(gridHeight), gridLength(gridLength)
 {
@@ -90,11 +93,15 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectsSSBO);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, bufsize, nullptr, GL_STATIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, objectsSSBO);
-	// send in the positions
 
+	// send in the positions and set buffer pos
 	for (auto& SObject : sourceObjects) {
-		SObject->StoreInBuffer(objectsSSBO, typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
+		SObject->buffer_pos = typeInfos[SObject->typeID].bufStartPos +
+			+SObject->uniqueId
+			* typeInfos[SObject->typeID].structSize;
+		SObject->StoreInBuffer(objectsSSBO,typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
 	}
 
+	ISourceObject::SSBObuffer = objectsSSBO;
 	return computeShaderSource;
 }

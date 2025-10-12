@@ -9,7 +9,6 @@ class ISourceObject {
 public:
 	unsigned int buffer_pos = 0;
 
-
 	virtual void Draw() = 0;
 	virtual std::string ElectricFieldContribution() = 0;
 	virtual void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) = 0;
@@ -18,7 +17,8 @@ public:
 	virtual int GetStructSize() = 0;
 	virtual void store(unsigned int buffer, int buf_pos, int own_pos, unsigned size, const void* data) = 0;
 	std::string typeID;
-	int uniqueId;
+	int uniqueId; 
+	static int SSBObuffer;
 	virtual ~ISourceObject() = default;
 	
 };
@@ -34,7 +34,7 @@ public:
 	pos(pos)
 	{
 		if (counter == 0) {
-			static_cast<DERIVED*>(this)->initialSetUp();
+			static_cast<DERIVED*>(static_cast<void*>(this))->initialSetUp();
 		}
 		counter++;
 	}
@@ -84,6 +84,11 @@ public:
 
 	void MoveTo(glm::vec3 trans) override {
 		pos = trans;
+		// send it to the buffer too
+		if (SSBObuffer == -1) return;
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBObuffer);
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, buffer_pos, sizeof(glm::vec3), &pos);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
 
 	// computing aspect
@@ -151,6 +156,7 @@ private:
 	static int counter;
 };
 
+
 // static stuff need to be declared outside of function for whatever reason
 template<typename DERIVED, typename DERIVEDSTRUCT>
 unsigned int SourceObject<DERIVED, DERIVEDSTRUCT>::VAO = 0;
@@ -167,6 +173,9 @@ int SourceObject<DERIVED, DERIVEDSTRUCT>::indicesCount = 0;
 template<typename DERIVED, typename DERIVEDSTRUCT>
 int SourceObject<DERIVED, DERIVEDSTRUCT>::counter = 0;
 
+//  -------------------------------- define objects onwards --------------------------------
+
+
 // now every object should just follow the structure of this point charge class
 
 struct alignas(16) PointChargeStruct { // this will take 32 bytes
@@ -175,7 +184,6 @@ struct alignas(16) PointChargeStruct { // this will take 32 bytes
 };
 
 class pointCharge : public SourceObject<pointCharge, PointChargeStruct> {
-
 public:
 	// properties
 	float charge = 1.0f;
@@ -208,12 +216,5 @@ public:
 		int size = GetStructSize();
 
 		this->store(buffer, buf_pos, own_pos, size, &pointCharge);
-
-		Info("sending: buffer = " + std::to_string(buffer) + ", buf_pos = " + std::to_string(buf_pos) +
-			", own_pos = " + std::to_string(own_pos) + ", size = " + std::to_string(size) +
-			", data = { " + std::to_string(pointCharge.position.x) + ", " +
-			std::to_string(pointCharge.position.y) + ", " +
-			std::to_string(pointCharge.position.z) + ", " +
-			std::to_string(pointCharge._charge) + " }");
 	}
 };
