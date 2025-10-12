@@ -72,6 +72,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		"\tvec3 gridSize = gl_NumWorkGroups.xyz * gl_WorkGroupSize.xyz;\n"
 		"\tvec3 gridPos = vec3(gl_GlobalInvocationID) / (gridSize);\n"
 		"\tgridPos = (gridPos - .5) * 2;\n"
+		"\tgridPos.z = 0;\n"
 		"\tuint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y * gridSize.x) + gl_GlobalInvocationID.z * gridSize.x * gridSize.y);\n"
 		"\tvec3 E = vec3(0);\n";
 	int SSBOobjectsize = 0;
@@ -95,6 +96,5 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		SObject->StoreInBuffer(objectsSSBO, typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
 	}
 
-	Info(computeShaderSource);
 	return computeShaderSource;
 }

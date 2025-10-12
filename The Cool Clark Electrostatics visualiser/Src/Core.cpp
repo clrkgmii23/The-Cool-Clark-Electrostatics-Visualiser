@@ -3,15 +3,15 @@
 #include "utils.h"
 #include <string>
 
-#define GRID_WIDTH 64
-#define GRID_HEIGHT 64
+#define GRID_WIDTH 32
+#define GRID_HEIGHT 32
 #define GRID_LENGTH 1
 
 void Core::SetUp()
 {
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
 	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(-0.5, 0.0, 0), 1, *basicShader));
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.5, 0.0, 0), 1, *basicShader));
+	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.5, 0.0, 0), -1, *basicShader));
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 
@@ -30,7 +30,10 @@ void Core::MainLoop()
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		
+		computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
+
+		sourceObjects[0]->MoveTo(glm::vec3(0.5f * sin((float)glfwGetTime()), 0.5f * cos((float)glfwGetTime()), 0));
+		sourceObjects[1]->MoveTo(glm::vec3(-0.5f * sin((float)glfwGetTime()), -0.5f * cos((float)glfwGetTime()), 0));
 		// COMPUTE PART
 		computeManager->ComputeContributions();
 
