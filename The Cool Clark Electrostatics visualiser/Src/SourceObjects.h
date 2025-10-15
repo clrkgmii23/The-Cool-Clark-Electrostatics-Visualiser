@@ -146,7 +146,7 @@ public:
 		glBufferSubData(GL_SHADER_STORAGE_BUFFER, buf_pos + own_pos * size, size, data);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
-private:
+protected:
 
 	static unsigned int VAO;
 	static unsigned int VBO;
@@ -180,15 +180,15 @@ int SourceObject<DERIVED, DERIVEDSTRUCT>::counter = 0;
 
 struct alignas(16) PointChargeStruct { // this will take 32 bytes
 	glm::vec3 position;
-	float _charge;
+	float charge;
 };
 
-class pointCharge : public SourceObject<pointCharge, PointChargeStruct> {
+class PointCharge : public SourceObject<PointCharge, PointChargeStruct> {
 public:
 	// properties
 	float charge = 1.0f;
-	pointCharge(glm::vec3 pos, float charge, Shader& shader)
-		: SourceObject<pointCharge, PointChargeStruct>(pos, shader) {
+	PointCharge(glm::vec3 pos, float charge, Shader& shader)
+		: SourceObject<PointCharge, PointChargeStruct>(pos, shader) {
 		typeID = "PointCharge";
 		this->charge = charge;
 	}
@@ -216,5 +216,51 @@ public:
 		int size = GetStructSize();
 
 		this->store(buffer, buf_pos, own_pos, size, &pointCharge);
+	}
+};
+
+
+struct alignas(16) InfiniteChargedLineStruct {
+	glm::vec3 position;
+	float charge;
+};
+
+class InfiniteChargedLine : public SourceObject<InfiniteChargedLine, InfiniteChargedLineStruct> {
+public:
+	// properties
+	float charge = 1.0f;
+	InfiniteChargedLine(glm::vec3 pos, float charge, Shader& shader)
+		: SourceObject<InfiniteChargedLine, InfiniteChargedLineStruct>(pos, shader) {
+		typeID = "InfiniteChargedLine";
+		this->charge = charge;
+	}
+
+	void initialSetUp() {
+		float vertices[] = {
+			 0, 1,0,
+			 0,-1,0
+		};
+
+		unsigned int indices[] = {
+			0, 1
+		};
+
+		AfterSetUp(sizeof(vertices), vertices, sizeof(indices), indices);
+	}
+
+	void Draw() override {
+		glBindVertexArray(VAO);
+		shader.UseProgram();
+		shader.SetVec3("position", pos);
+		glDrawElements(GL_LINES, indicesCount, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+
+	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
+
+		InfiniteChargedLineStruct infiniteLineCharge = { pos, charge };
+		int size = GetStructSize();
+
+		this->store(buffer, buf_pos, own_pos, size, &infiniteLineCharge);
 	}
 };

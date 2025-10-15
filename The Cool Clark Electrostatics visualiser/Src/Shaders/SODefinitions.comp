@@ -17,9 +17,26 @@ struct PointCharge{ // this will take 32 bytes
 //
 vec3 PointChargeElectricField(PointCharge pointcharge, vec3 gridPos){
 	float r = distance(gridPos, pointcharge.position);
-	if (r < 0.01) return vec3(0);
+	if (r < 0.0001) return vec3(0);
 	vec3 u = vec3(gridPos.x - pointcharge.position.x, gridPos.y - pointcharge.position.y,
 	gridPos.z - pointcharge.position.z)/r;
 	float E = k*pointcharge.charge/(r*r);
+	return E*vec3(u);
+}
+
+// infinite charged line 
+
+// Point Charge
+struct InfiniteChargedLine{ // this will take 32 bytes
+	vec3 position;
+	float charge;
+};
+//
+vec3 InfiniteChargedLineElectricField(InfiniteChargedLine infiniteChargedLine, vec3 gridPos){
+	// currently we'll only care about the x axis, TODO: 3D!
+	float r = abs(gridPos.x - infiniteChargedLine.position.x);
+	if (r < 0.0001) return vec3(0);
+	vec3 u = normalize(vec3(gridPos.x - infiniteChargedLine.position.x, 0 ,0));
+	float E = infiniteChargedLine.charge/(2*3.15149*1*r); 
 	return E*vec3(u);
 }

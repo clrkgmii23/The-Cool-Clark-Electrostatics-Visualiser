@@ -61,9 +61,9 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	int prevBufPos = 0;
-	computeShaderSource += "layout(std430, binding = 1)	buffer INpositionBuffer{\n\t";
+	computeShaderSource += "layout(std430, binding = 1)	buffer INpositionBuffer{\n";
 	for (auto& pair : typeInfos) {
-		computeShaderSource += pair.first + " " + pair.first  + "s[];\n";
+		computeShaderSource += "\t" + pair.first + " " + pair.first + "s[" + std::to_string(pair.second.count) + "];\n";
 		pair.second.bufStartPos = prevBufPos;
 		prevBufPos = pair.second.bufStartPos + pair.second.count * pair.second.structSize;
 	}
@@ -86,7 +86,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	computeShaderSource += "\tcalculatedPos[id] = E;\n}";
-	//Info(computeShaderSource);
+	Info(computeShaderSource);
 	
 	// make position buffer for source objects
 	glGenBuffers(1, &objectsSSBO);
@@ -97,7 +97,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	// send in the positions and set buffer pos
 	for (auto& SObject : sourceObjects) {
 		SObject->buffer_pos = typeInfos[SObject->typeID].bufStartPos +
-			+SObject->uniqueId
+			+ SObject->uniqueId
 			* typeInfos[SObject->typeID].structSize;
 		SObject->StoreInBuffer(objectsSSBO,typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
 	}

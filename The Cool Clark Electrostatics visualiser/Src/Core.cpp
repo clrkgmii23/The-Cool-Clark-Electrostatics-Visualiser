@@ -3,18 +3,26 @@
 #include "utils.h"
 #include <string>
 
-#define GRID_WIDTH 32
-#define GRID_HEIGHT 32
+#define GRID_WIDTH 64*2
+#define GRID_HEIGHT 64*2
 #define GRID_LENGTH 1
 
-void Core::SetUp()
-{
+void Core::SetUp() {
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(-0.5, 0.0, 0), 1, *basicShader));
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.5, 0.0, 0), -1, *basicShader));
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, 0.5, 0), -1, *basicShader));
-	sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0, -0.5, 0), 1, *basicShader));
-	//sourceObjects.push_back(std::make_unique<pointCharge>(glm::vec3(0.0, 0.1, 0),  1, *basicShader));
+	lineShader = std::make_unique <Shader>("Src/Shaders/infiniteLineShader.vert", "Src/Shaders/infiniteLineShader.frag");
+	/*sourceObjects.push_back(std::make_unique<PointCharge>(
+		glm::vec3(0.5, 0, 0)
+		, 1, *basicShader));*/
+	sourceObjects.push_back(std::make_unique<PointCharge>(
+		glm::vec3(-0.0, 0, 0)
+		, -1, *basicShader));
+	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
+		glm::vec3(0.5, 0, 0)
+		, 10, *lineShader));
+	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
+		glm::vec3(-0.5, 0, 0)
+		, -10, *lineShader));
+
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 
@@ -26,18 +34,19 @@ void Core::SetUp()
 
 }
 
-void Core::MainLoop()
-{
+void Core::MainLoop() {
 	glClearColor(0.3, 0.6, 0.1, 1.0);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
+
+		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT);
-		sourceObjects[0]->MoveTo(glm::vec3(0.5f * sin((float)glfwGetTime()), 0.5f * cos((float)glfwGetTime()), 0));
-		sourceObjects[1]->MoveTo(glm::vec3(-0.5f * sin((float)glfwGetTime()), -0.5f * cos((float)glfwGetTime()), 0));
 
 		// COMPUTE PART
+		sourceObjects[0]->MoveTo(glm::vec3(0.5*cos(_time), 0.1 * sin(_time), 0));
+		/*sourceObjects[1]->MoveTo(glm::vec3(-0.5*cos(_time), -0.5 * sin(_time), 0));
+		sourceObjects[2]->MoveTo(glm::vec3(sin(_time), 0, 0));*/
 		computeManager->ComputeContributions();
-
 
 		// RENDER  PART
 		renderer->DrawGrid();
@@ -47,6 +56,9 @@ void Core::MainLoop()
 		glfwSwapBuffers(window);
 		HandleIKeyboardnput();
 		glfwPollEvents();
+
+		deltaTime = glfwGetTime() - _time;
+		//Info(std::to_string(1/deltaTime));
 	}
 }
 

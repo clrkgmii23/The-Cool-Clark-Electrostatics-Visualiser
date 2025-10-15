@@ -33,5 +33,5 @@ void main(){
 	else{
 		pos = calculatedPos[id];
 	}
-	gl_Position = vec4(vec2(gridPos)+ vec2(pos)*scale, 0,1);
+	gl_Position = vec4(vec2(gridPos) + vec2(pos)*scale, 0,1);
 }
