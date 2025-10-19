@@ -22,6 +22,7 @@ public:
 
 	std::unique_ptr<Shader> basicShader;
 	std::unique_ptr<Shader> lineShader;
+	std::unique_ptr<Shader> circleShader;
 
 	std::unique_ptr<ComputeManager> computeManager;
 	std::unique_ptr<Renderer> renderer;

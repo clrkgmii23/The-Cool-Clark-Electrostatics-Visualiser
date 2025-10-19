@@ -7,7 +7,7 @@ out vec3 Pos;
 uniform vec3 position;
 
 void main(){
-	gl_Position = vec4(aPos + position,1);
+	gl_Position = vec4(aPos + position, 1);
 
 	Pos = aPos;
 }

@@ -13,8 +13,6 @@ unsigned int static SetUpShader(const char*& shaderChar, int shaderType) {
 	glCompileShader(shader);
 
 	int success;
-	char info[512];
-	// TODO: 512 is a constant value, figure out a way to make it dynamic
 	std::string shaderTypeName;
 
 	switch (shaderType){
@@ -31,9 +29,14 @@ unsigned int static SetUpShader(const char*& shaderChar, int shaderType) {
 
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
-		glGetShaderInfoLog(shader, 512, NULL, info);
+		int infoLength;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLength);
+
+		std::vector<char> info(infoLength);
+		glGetShaderInfoLog(shader, infoLength, NULL, info.data());
+		std::string Infostr{ info.data()};
 		ErrorMessage("Error While COMPILING " + shaderTypeName + " SHADER\nINFOLOG: "
-			+ std::string(info));
+			+ Infostr);
 	}
 	return shader;
 }
@@ -43,9 +46,14 @@ void checkProgramError(unsigned int program) {
 	char info[512];
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
 	if (!success) {
-		glGetProgramInfoLog(program, 512, NULL, info);
+		int infoLength;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLength);
+		std::vector<char> info(infoLength);
+		glGetProgramInfoLog(program, infoLength, NULL, info.data());
+
+		std::string infoStr{ info.data() };
 		ErrorMessage("Error While LINKING PROGRAM\nINFOLOG: "
-			+ std::string(info));
+			+ infoStr);
 	}
 }
 
@@ -83,7 +91,6 @@ Shader::~Shader() {
 }
 
 // uniform stuff
-// TODO: DRY !
 void Shader::SetInt(const char* name, int value) {
 	unsigned int loc = GetLoc(name);
 	glUniform1i(loc, value);

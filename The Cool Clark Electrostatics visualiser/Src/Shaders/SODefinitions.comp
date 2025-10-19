@@ -8,8 +8,10 @@
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
 
 float k = 1;
+float e_0 = 1;
+float PI = 3.14159265359;
 
-// Point Charge
+//											Point Charge								//
 struct PointCharge{ // this will take 32 bytes
 	vec3 position;
 	float charge;
@@ -24,9 +26,8 @@ vec3 PointChargeElectricField(PointCharge pointcharge, vec3 gridPos){
 	return E*vec3(u);
 }
 
-// infinite charged line 
+//									  Infinite Charged Line								//
 
-// Point Charge
 struct InfiniteChargedLine{ // this will take 32 bytes
 	vec3 position;
 	float charge;
@@ -37,6 +38,36 @@ vec3 InfiniteChargedLineElectricField(InfiniteChargedLine infiniteChargedLine, v
 	float r = abs(gridPos.x - infiniteChargedLine.position.x);
 	if (r < 0.0001) return vec3(0);
 	vec3 u = normalize(vec3(gridPos.x - infiniteChargedLine.position.x, 0 ,0));
-	float E = infiniteChargedLine.charge/(2*3.15149*1*r); 
+	float E = infiniteChargedLine.charge/(2*PI*e_0*r); 
 	return E*vec3(u);
+}
+
+
+//											Charged Circle								//
+
+struct ChargedCircle{ // this will take 32 bytes
+	vec3 position;
+	float charge;
+	float radius;
+};
+//
+vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
+	// E = Rdthtea/r^3 u
+	vec3 E = vec3(0);
+	vec3 E2 = vec3(0);
+	float R = chargedcircle.radius;
+
+	// integrating over the circle, approximation
+	int N = 200; // number of segments
+	float dTheta = 2*PI/N;
+	for (int i = 0; i < N; i++){
+		float theta = i*dTheta;
+		vec3 u = vec3(	gridPos.x - chargedcircle.position.x - R*cos(theta),
+						gridPos.y - chargedcircle.position.y - R*sin(theta),
+						gridPos.z - chargedcircle.position.z);
+		float r = length(u);
+		if (r < 0.001) continue;
+		E += R*dTheta/(r*r*r) * u;
+	}
+	return k*chargedcircle.charge * E;  // test difference
 }

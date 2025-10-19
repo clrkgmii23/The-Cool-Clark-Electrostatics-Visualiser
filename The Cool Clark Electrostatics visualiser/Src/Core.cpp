@@ -3,26 +3,29 @@
 #include "utils.h"
 #include <string>
 
-#define GRID_WIDTH 64*2
-#define GRID_HEIGHT 64*2
+#define GRID_WIDTH 32
+#define GRID_HEIGHT 32
 #define GRID_LENGTH 1
+
+// temp function
+//void addElement()
 
 void Core::SetUp() {
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
-	lineShader = std::make_unique <Shader>("Src/Shaders/infiniteLineShader.vert", "Src/Shaders/infiniteLineShader.frag");
-	/*sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(0.5, 0, 0)
-		, 1, *basicShader));*/
+	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag");
+	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag");
 	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(-0.0, 0, 0)
+		glm::vec3(0, 0, 0)
 		, -1, *basicShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(
+		glm::vec3(0, 0, 0)
+		, 1, 0.5, *circleShader));
 	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
-		glm::vec3(0.5, 0, 0)
-		, 10, *lineShader));
+		glm::vec3(.5, 0, 0)
+		, -1, *lineShader));
 	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
-		glm::vec3(-0.5, 0, 0)
-		, -10, *lineShader));
-
+		glm::vec3(-.5, 0, 0)
+		, -1, *lineShader));
 	basicShader->UseProgram();
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 
@@ -36,6 +39,7 @@ void Core::SetUp() {
 
 void Core::MainLoop() {
 	glClearColor(0.3, 0.6, 0.1, 1.0);
+	glLineWidth(3);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 
@@ -43,10 +47,7 @@ void Core::MainLoop() {
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// COMPUTE PART
-		sourceObjects[0]->MoveTo(glm::vec3(0.5*cos(_time), 0.1 * sin(_time), 0));
-		/*sourceObjects[1]->MoveTo(glm::vec3(-0.5*cos(_time), -0.5 * sin(_time), 0));
-		sourceObjects[2]->MoveTo(glm::vec3(sin(_time), 0, 0));*/
-		computeManager->ComputeContributions();
+		//computeManager->ComputeContributions();
 
 		// RENDER  PART
 		renderer->DrawGrid();
@@ -58,7 +59,7 @@ void Core::MainLoop() {
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
-		//Info(std::to_string(1/deltaTime));
+		//Info(std::to_string(1/deltaTime)); // see frames
 	}
 }
 
@@ -139,7 +140,7 @@ void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int heigh
 
 void Core::GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
-	// TODO: make something with this!
+
 }
 
 void Core::HandleIKeyboardnput() {

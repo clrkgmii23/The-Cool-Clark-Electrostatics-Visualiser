@@ -14,7 +14,6 @@ ComputeManager::ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sour
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
 	unsigned int gridSize = gridWidth*gridHeight* gridLength;
 	// std430 apparently requires padding to vec4, so multiplying by 4 rather than 3 for the vec3 array
-	// TODO: test this, isn't 430 supposed to get rid of padding?
 	glBufferData(GL_SHADER_STORAGE_BUFFER, gridSize * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -41,7 +40,9 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		") in;\n" +
 		"layout(binding = 0, std430) buffer positionBuffer {\n"
 		"	vec3 calculatedPos[];\n};\n\n" +
-		"float k = 1; \n\n";
+		"float k = 1; \n\n"
+		"float e_0 = 1; \n\n"
+		"float PI = 3.14159265359; \n\n";
 	
 	int bufsize = 0;
 
@@ -86,7 +87,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	computeShaderSource += "\tcalculatedPos[id] = E;\n}";
-	Info(computeShaderSource);
+	//Info(computeShaderSource);
 	
 	// make position buffer for source objects
 	glGenBuffers(1, &objectsSSBO);

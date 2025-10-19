@@ -1,8 +1,7 @@
 #pragma once
 
-// this class will manage computing the contribution for each SourceObject, and store them in
-// an SSBO buffer
-// TODO: possibly generate the compute shader with this?
+// this class will generate and compute and dispatch a compute shader to calculatecontribution for each SourceObject
+// and store them in an SSBO buffer, ready to go to the renderer
 
 #include "SourceObjects.h"
 #include "Shader.h"

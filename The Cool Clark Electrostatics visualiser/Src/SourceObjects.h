@@ -26,7 +26,7 @@ public:
 template<typename DERIVED, typename DERIVEDSTRUCT>
 class SourceObject : public ISourceObject {
 public:
-	Shader& shader; 
+	Shader& shader;
 	// every object needs a position
 	glm::vec3 pos;
 
@@ -56,27 +56,26 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, verticesSize, vertices, GL_STATIC_DRAW);
 
-		// EBO
-		glGenBuffers(1, &EBO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesSize, indices, GL_STATIC_DRAW);
-
+		if(indices != nullptr) {
+			// EBO
+			glGenBuffers(1, &EBO);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesSize, indices, GL_STATIC_DRAW);
+			indicesCount = indicesSize / sizeof(unsigned int);
+		}
 		// VAO - currenty holdes x y z coords
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
 		glEnableVertexAttribArray(0);
 		glBindVertexArray(0);
-
-		indicesCount = indicesSize / sizeof(unsigned int);
 	}
 
 	// drawing aspect
-	// TODO: implement this crap
 	virtual void Draw() {
 		glBindVertexArray(VAO);
 		shader.UseProgram();
 		shader.SetVec3("position", pos);
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);	
+		glBindVertexArray(0);
 	}
 
 	glm::vec3 GetPos() override { return pos; };
@@ -92,7 +91,7 @@ public:
 	}
 
 	// computing aspect
-	virtual std::string ElectricFieldContribution() {
+	virtual std::string ElectricFieldContribution() { // get function to generate electric field in a compute shader
 
 		// super hacky and jank way of getting the function definition from a file, but works
 		std::ifstream file("Src/Shaders/SODefinitions.comp");
@@ -173,10 +172,12 @@ int SourceObject<DERIVED, DERIVEDSTRUCT>::indicesCount = 0;
 template<typename DERIVED, typename DERIVEDSTRUCT>
 int SourceObject<DERIVED, DERIVEDSTRUCT>::counter = 0;
 
-//  -------------------------------- define objects onwards --------------------------------
-
+//  -------------------------------- define objects onwards --------------------------------  //
 
 // now every object should just follow the structure of this point charge class
+
+
+//-------------------------------------- POINT CHARGE --------------------------------------//
 
 struct alignas(16) PointChargeStruct { // this will take 32 bytes
 	glm::vec3 position;
@@ -219,6 +220,7 @@ public:
 	}
 };
 
+//--------------------------------------- INFINITE LINE ---------------------------------------//
 
 struct alignas(16) InfiniteChargedLineStruct {
 	glm::vec3 position;
@@ -262,5 +264,61 @@ public:
 		int size = GetStructSize();
 
 		this->store(buffer, buf_pos, own_pos, size, &infiniteLineCharge);
+	}
+};
+
+//-------------------------------------- CHARGED CIRCLE --------------------------------------//
+
+struct alignas(16) ChargedCircleStruct {
+	glm::vec3 position;
+	float charge;
+	float radius;
+};
+// TODO: instead of rendering it with lines, use the fragment shader to draw a circle from a quad, like what you did for point charges
+class ChargedCircle : public SourceObject<ChargedCircle, ChargedCircleStruct> {
+public:
+	// properties
+	float charge = 1.0;
+	float radius = 0.5;
+	ChargedCircle(glm::vec3 pos, float charge, float radius, Shader& shader)
+		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius),
+	charge(charge) {
+		typeID = "ChargedCircle";
+	}
+
+	void initialSetUp() {
+		std::vector<float> vertices;
+		const float pi = 3.14159265359;
+		// TODO: don't hard code 100 here
+		const int N = 100;
+		//this->radius = 0.5;
+		for (int i = 0; i < 4*N + 2; i++)
+		{
+			float angle = (2 * pi) * i / N;
+			vertices.push_back(this->pos.x + cos(angle));
+			vertices.push_back(this->pos.y + sin(angle));
+			vertices.push_back(this->pos.z);
+		}
+
+
+		AfterSetUp(vertices.size(), vertices.data(), 0, nullptr);
+	}
+
+	void Draw() override {
+		glBindVertexArray(VAO);
+		shader.UseProgram();
+		const int N = 100;
+		shader.SetVec3("position", pos);
+		shader.SetFloat("radius", this->radius);
+		glDrawArrays(GL_LINE_STRIP, 0, N+1);
+		glBindVertexArray(0);
+	}
+
+	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
+
+		ChargedCircleStruct chargedCircle = { pos, charge, radius};
+		int size = GetStructSize();
+
+		this->store(buffer, buf_pos, own_pos, size, &chargedCircle);
 	}
 };
