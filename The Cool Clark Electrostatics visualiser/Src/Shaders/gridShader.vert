@@ -3,6 +3,10 @@
 layout (binding = 0, std430) buffer positionBuffer{
 	vec3 calculatedPos[];
 };
+layout (binding = 0, std140) uniform Matrices{
+	mat4 view;
+	mat4 prespective;
+};
 
 uniform int gridWidth;
 uniform int gridHeight;
@@ -23,7 +27,7 @@ void main(){
 	gridPos = (gridPos -.5)*2;
 
 	if(part == 1){
-		gl_Position = vec4(gridPos,1);
+		gl_Position = prespective * view * vec4(gridPos.x, gridPos.y, 0 ,1);
 		return;
 	}
 
@@ -36,5 +40,6 @@ void main(){
 	else{
 		pos = E;
 	}
-	gl_Position = vec4(vec2(gridPos) + vec2(pos)*scale, 0,1);
+	vec4 apos = vec4(vec2(gridPos) + vec2(pos)*scale, 0,1);
+	gl_Position = prespective * view * apos;
 }

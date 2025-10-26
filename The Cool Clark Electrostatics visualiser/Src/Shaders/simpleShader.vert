@@ -6,8 +6,13 @@ out vec3 Pos;
 
 uniform vec3 position;
 
+layout (std140, binding = 0) uniform Matrices{
+	uniform mat4 view;
+	uniform mat4 prespective;
+};
+
 void main(){
-	gl_Position = vec4(aPos + position, 1);
+	gl_Position = prespective * view * vec4(aPos + position, 1);
 
 	Pos = aPos;
 }

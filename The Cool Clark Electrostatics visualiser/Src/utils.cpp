@@ -3,6 +3,8 @@
 #include <fstream>
 #include <sstream>
 
+
+
 // basic debug error message
 void AppendIntoFile(const char* filePath, std::string content) {
 	std::fstream logFile;
@@ -55,5 +57,12 @@ void Info(std::string Message, bool writeToFile) {
 #ifdef DEBUG_FILE
 	if (writeToFile)
 		LogFile("> " + Message);
+#endif
+}
+// TODO: output to file too
+void Info(glm::vec3 Message, bool writeToFile)
+{
+#ifdef DEBUG_CONSOLE
+	std::cout << "> x: " << Message.x << ", y: " << Message.y << ", z: " << Message.z << std::endl;
 #endif
 }

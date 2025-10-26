@@ -4,6 +4,7 @@
 #include "SourceObjects.h"
 #include "ComputeManager.h"
 #include "Renderer.h"
+#include "Camera.h"
 #include <GLFW/glfw3.h>
 
 // this class is going to serve as the bridge between most the components
@@ -26,6 +27,7 @@ public:
 
 	std::unique_ptr<ComputeManager> computeManager;
 	std::unique_ptr<Renderer> renderer;
+	std::unique_ptr<Camera> mainCam;
 	// long ass type name
 	std::vector<std::unique_ptr<ISourceObject>> sourceObjects;
 
@@ -38,5 +40,8 @@ private:
 	static void GLFWWindowSizeCallback(GLFWwindow* window, int width, int height);
 	void GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int height);
 	static void GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos);
-	void HandleIKeyboardnput();
+	void GLFWMouseCallbackBounce(GLFWwindow* window, double xpos, double ypos);
+	static void GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	void GLFWScrollCallbackBounce(GLFWwindow* window, double xoffset, double yoffset);
+	void HandleIKeyboardInput();
 };

@@ -2,6 +2,8 @@
 #include "Core.h"
 #include "utils.h"
 #include <string>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define GRID_WIDTH 32
 #define GRID_HEIGHT 32
@@ -10,12 +12,19 @@
 // temp function
 //void addElement()
 
+
+unsigned int MatUBO;
+
 void Core::SetUp() {
+	mainCam = std::make_unique<Camera>();
+	mainCam->x_rot_sen = 0.7;
+	mainCam->y_rot_sen = 0.7;
+
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
 	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag");
 	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag");
 	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(0, 0, 0)
+		glm::vec3(0, 0,0)
 		, -1, *basicShader));
 	sourceObjects.push_back(std::make_unique<ChargedCircle>(
 		glm::vec3(0, 0, 0)
@@ -35,27 +44,45 @@ void Core::SetUp() {
 	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
 		GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
 
+	// uniform buffer object
+	glGenBuffers(1, &MatUBO);
+	glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 0, MatUBO);
 }
 
 void Core::MainLoop() {
 	glClearColor(0.3, 0.6, 0.1, 1.0);
-	glLineWidth(3);
+	//glLineWidth(3);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT);
+		// TEST PART
+		
+		glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
+		glm::mat4 view = mainCam->GetViewMatrix();
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
+
+		glm::mat4 prespective = glm::perspective(glm::radians(70.0f), (float)windowWidth / (float)windowHeight, 0.001f, 1000.0f);
+		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(prespective));
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+
+		sourceObjects[0]->MoveTo(glm::vec3(cos(_time), sin(_time), 0));
 
 		// COMPUTE PART
-		//computeManager->ComputeContributions();
+		computeManager->ComputeContributions();
 
 		// RENDER  PART
-		renderer->DrawGrid();
 		renderer->DrawShapes();
+		renderer->DrawGrid();
 
 		// ETC
 		glfwSwapBuffers(window);
-		HandleIKeyboardnput();
+		HandleIKeyboardInput();
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
@@ -92,12 +119,13 @@ Core::Core(int width, int height, const char* title):
 		glfwTerminate();
 	}
 
-
 	// some cool coolbacks
 	glfwSetErrorCallback(GLFWErrorCallback);
 	glfwSetWindowSizeCallback(window, GLFWWindowSizeCallback);
 	glfwSetCursorPosCallback(window, GLFWMouseCallback);
-		
+	glfwSetScrollCallback(window, GLFWScrollCallback);
+
+
 	glfwSetWindowUserPointer(window, this);
 
 	glViewport(0, 0, width, height);
@@ -138,12 +166,37 @@ void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int heigh
 	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 }
 
-void Core::GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos)
+float lastX = 0;
+float lastY = 0;
+
+void Core::GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos) {
+	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
+	if(myCore)
+		myCore->GLFWMouseCallbackBounce(window, xpos, ypos);
+}
+
+void Core::GLFWMouseCallbackBounce(GLFWwindow* window, double xpos, double ypos)
 {
+	if(glfwGetMouseButton(window, 0) == GLFW_PRESS)
+		mainCam->HandleMouseInput(xpos, ypos, glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
+
+	mainCam->lastX = (float)xpos;
+	mainCam->lastY = (float)ypos;
 
 }
 
-void Core::HandleIKeyboardnput() {
+void Core::GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
+	if (myCore)
+		myCore->GLFWScrollCallbackBounce(window, xoffset, yoffset);
+}
+
+void Core::GLFWScrollCallbackBounce(GLFWwindow* window, double xoffset, double yoffset){
+	mainCam->HandleScroll(xoffset, yoffset);
+}
+
+void Core::HandleIKeyboardInput() {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 }

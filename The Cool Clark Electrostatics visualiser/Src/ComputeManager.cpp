@@ -104,5 +104,14 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	ISourceObject::SSBObuffer = objectsSSBO;
+
+	/*glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
+	float* data = (float*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	for (size_t i = 0; i < 100; i+=3)
+	{
+		Info(glm::vec3(data[i], data[i+1], data[i+2]));
+	}
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);*/
 	return computeShaderSource;
 }

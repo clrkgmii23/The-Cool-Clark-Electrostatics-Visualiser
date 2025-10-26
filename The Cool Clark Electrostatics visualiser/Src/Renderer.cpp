@@ -40,6 +40,6 @@ void Renderer::DrawGrid()
 	gridShader->UseProgram();
 	glBindVertexArray(VAO);
 	// draw a 2d vector, so gridsize * 2 for tail and head of the vector
-	glDrawArraysInstanced(GL_LINES, 0, 2, gridSize*2);
+	glDrawArraysInstanced(GL_LINES, 0, 2, gridSize);
 	glBindVertexArray(0);
 }

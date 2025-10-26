@@ -1,6 +1,6 @@
 ﻿add_executable(CMakeTarget "Src/The Cool Clark Electrostatics Visualiser.cpp"
 "Src/glad.c" "Src/Core.cpp" "Src/Shader.cpp" "Src/utils.cpp" "Src/SourceObjects.h" "Src/ComputeManager.cpp" 
-"Src/Renderer.cpp")
+"Src/Renderer.cpp" "Src/Camera.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET CMakeTarget PROPERTY CXX_STANDARD 20)
