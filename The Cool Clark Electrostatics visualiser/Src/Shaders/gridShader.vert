@@ -8,38 +8,40 @@ layout (binding = 0, std140) uniform Matrices{
 	mat4 prespective;
 };
 
-uniform int gridWidth;
-uniform int gridHeight;
-uniform int gridLength;
+uniform ivec3 gridSize;
+
+uniform vec3 gridGap;
 
 out float magnitude;
 
 void main(){
-	int gridSize = gridWidth*gridHeight*gridLength;
+	int gridSizeN = int( gridSize.x*gridSize.y*gridSize.z);
 	int part = gl_VertexID % 2; // 1 = tail, 0 = head
 	int id = gl_InstanceID;
-	float x = id%gridWidth;
-	float y = id/gridWidth;
-	float z = 0; // TODO: make this work with z too, part II: return of the 
+	float x = id%gridSize.x;
+	float y = (id/gridSize.x)%(gridSize.y);
+	float z = id/(gridSize.x*gridSize.y); 
+
+
 	vec3 E = calculatedPos[id];
 	magnitude = length(E);
-	vec3 gridPos = vec3(x/float(gridWidth), y/float(gridHeight), 0);
-	gridPos = (gridPos -.5)*2;
+	vec3 gridPos = vec3(x, y, z);
+	gridPos = (gridPos - (vec3(gridSize) - 1.0) / 2.0) * gridGap;
+
 
 	if(part == 1){
-		gl_Position = prespective * view * vec4(gridPos.x, gridPos.y, 0 ,1);
+		gl_Position = prespective * view * vec4(gridPos,1);
 		return;
 	}
 
 	// not the best visualisation!
 	float scale = .05;
-	float r = length(E);
 	vec3 pos;
 	float max_val = 1.0;
-	if(r > max_val) pos = normalize(E)*max_val;
+	if(magnitude > max_val) pos = normalize(E)*max_val;
 	else{
 		pos = E;
 	}
-	vec4 apos = vec4(vec2(gridPos) + vec2(pos)*scale, 0,1);
+	vec4 apos = vec4(gridPos + pos*scale,1);
 	gl_Position = prespective * view * apos;
 }

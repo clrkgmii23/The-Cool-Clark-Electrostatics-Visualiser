@@ -16,6 +16,7 @@ public:
 	void SetBool(const char* name, bool value);
 	void SetVec2(const char* name, glm::vec2 value);
 	void SetVec3(const char* name, glm::vec3 value);
+	void SetIVec3(const char* name, glm::vec3 value);
 	void SetMat4(const char* name, glm::mat4 value);
 
 private:

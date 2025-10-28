@@ -15,11 +15,12 @@ public:
 	unsigned int positionBuffer;
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
 	std::unique_ptr<Shader> gridShader;
-	unsigned int gridWidth, gridHeight, gridLength;
-	unsigned int gridSize;
+	glm::vec3 gridSize;
+	glm::vec3 gridGap;
+	unsigned int gridSizeN;
 	Renderer(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 		unsigned int positionBuffer, const char* vertexShaderPath, const char* fragmentShaderPath,
-		unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength);
+		glm::vec3 gridSize, glm::vec3 gridGap);
 	~Renderer();
 	void DrawGrid();
 	void DrawShapes();

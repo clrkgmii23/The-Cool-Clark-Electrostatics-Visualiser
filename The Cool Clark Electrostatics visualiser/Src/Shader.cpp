@@ -112,6 +112,11 @@ void Shader::SetVec3(const char* name, glm::vec3 value) {
 	unsigned int loc = GetLoc(name);
 	glUniform3f(loc, value.x, value.y, value.z);
 }
+void Shader::SetIVec3(const char* name, glm::vec3 value)
+{
+	unsigned int loc = GetLoc(name);
+	glUniform3i(loc, value.x, value.y, value.z);
+}
 void Shader::SetMat4(const char* name, glm::mat4 value) {
 	unsigned int loc = GetLoc(name);
 	glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(value));

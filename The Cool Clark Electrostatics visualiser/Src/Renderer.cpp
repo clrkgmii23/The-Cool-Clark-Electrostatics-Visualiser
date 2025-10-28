@@ -5,25 +5,24 @@
 
 Renderer::Renderer(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 	unsigned int positionBuffer, const char* vertexShaderPath, const char* fragmentShaderPath,
-	unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength) :
-	sourceObjects(sourceObjects), gridWidth(gridWidth), gridHeight(gridHeight), gridLength(gridLength),
-	positionBuffer(positionBuffer),
+	glm::vec3 gridSize, glm::vec3 gridGap) :
+	sourceObjects(sourceObjects), gridSize(gridSize),
+	positionBuffer(positionBuffer), gridGap(gridGap),
 	VAO(0)
 {
 	gridShader = std::make_unique<Shader>(vertexShaderPath, fragmentShaderPath);
-	gridSize = gridWidth * gridHeight * gridLength;
+	gridSizeN = gridSize.x* gridSize.y * gridSize.z;
 
 	gridShader->UseProgram();
-	gridShader->SetInt("gridWidth", gridWidth);
-	gridShader->SetInt("gridHeight", gridHeight);
-	gridShader->SetInt("gridLength", gridLength);
+	gridShader->SetIVec3("gridSize", gridSize);
+	gridShader->SetVec3("gridGap", gridGap);
 
 	glGenVertexArrays(1, &VAO);
 }
 
 Renderer::~Renderer()
 {
-	glDeleteBuffers(1, &VAO);
+	glDeleteVertexArrays(1, &VAO);
 }
 
 void Renderer::DrawShapes()
@@ -39,7 +38,7 @@ void Renderer::DrawGrid()
 {
 	gridShader->UseProgram();
 	glBindVertexArray(VAO);
-	// draw a 2d vector, so gridsize * 2 for tail and head of the vector
-	glDrawArraysInstanced(GL_LINES, 0, 2, gridSize);
+	// draw grid with given positionBuffer and grid dimentions
+	glDrawArraysInstanced(GL_LINES, 0, 2, gridSizeN);
 	glBindVertexArray(0);
 }

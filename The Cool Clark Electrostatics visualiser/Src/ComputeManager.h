@@ -8,7 +8,6 @@
 #include <vector>
 #include <memory>
 
-// this should match what's in shader.comp
 #define X_INVOCATION_NUM 16
 #define Y_INVOCATION_NUM 16
 #define Z_INVOCATION_NUM 1
@@ -16,7 +15,8 @@
 class ComputeManager {
 public:
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
-	unsigned int gridWidth, gridHeight, gridLength;
+	glm::vec3 gridSize;
+	glm::vec3 gridGap;
 	unsigned int positionBuffer; // buffer for grid vector positions
 	unsigned int objectsSSBO; //buffer for source objects and their properties
 
@@ -29,7 +29,8 @@ public:
 
 	std::unique_ptr<ComputeShader> computeShaderID;
 	
-	ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength);
+	ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, glm::vec3 gridSize, glm::vec3 gridGap);
 	std::string GenerateComputeShaderSource();
+	void SendSOjectsPos();
 	void ComputeContributions();
 };

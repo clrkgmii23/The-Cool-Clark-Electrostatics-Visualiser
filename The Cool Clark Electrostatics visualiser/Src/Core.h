@@ -33,7 +33,10 @@ public:
 
 private:
 	GLFWwindow* window;
-
+	unsigned int MatUBO;
+	void SetUpUniformBuffer();
+	void UpdateView();
+	void UpdatePres();
 	unsigned int windowWidth;
 	unsigned int windowHeight;
 	static void GLFWErrorCallback(int error, const char* description);
@@ -44,4 +47,5 @@ private:
 	static void GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	void GLFWScrollCallbackBounce(GLFWwindow* window, double xoffset, double yoffset);
 	void HandleIKeyboardInput();
+
 };

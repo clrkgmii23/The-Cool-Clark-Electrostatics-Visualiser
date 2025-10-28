@@ -5,25 +5,25 @@
 
 int ISourceObject::SSBObuffer = -1; // c++ quirk
 
-ComputeManager::ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, unsigned int gridWidth, unsigned int gridHeight, unsigned int gridLength):
-	sourceObjects(sourceObjects), gridWidth(gridWidth), gridHeight(gridHeight), gridLength(gridLength)
+ComputeManager::ComputeManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, const char* computeShaderPath, glm::vec3 gridSize, glm::vec3 gridGap):
+	sourceObjects(sourceObjects), gridSize(gridSize), gridGap(gridGap)
 {
 	computeShaderID = std::make_unique<ComputeShader>(GenerateComputeShaderSource());
 	// creating SSBO for grid positions
 	glGenBuffers(1, &positionBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
-	unsigned int gridSize = gridWidth*gridHeight* gridLength;
+	unsigned int gridSizeN = gridSize.x* gridSize.y* gridSize.z;
 	// std430 apparently requires padding to vec4, so multiplying by 4 rather than 3 for the vec3 array
-	glBufferData(GL_SHADER_STORAGE_BUFFER, gridSize * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, gridSizeN * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 void ComputeManager::ComputeContributions()
 {
-	unsigned int xGroupNum = (gridWidth  + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
-	unsigned int yGroupNum = (gridHeight + Y_INVOCATION_NUM - 1) / Y_INVOCATION_NUM;
-	unsigned int zGroupNum = (gridLength + Z_INVOCATION_NUM - 1) / Z_INVOCATION_NUM;
+	unsigned int xGroupNum = (gridSize.x + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+	unsigned int yGroupNum = (gridSize.y + Y_INVOCATION_NUM - 1) / Y_INVOCATION_NUM;
+	unsigned int zGroupNum = (gridSize.z + Z_INVOCATION_NUM - 1) / Z_INVOCATION_NUM;
 	computeShaderID->Compute(xGroupNum, yGroupNum, zGroupNum, GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
@@ -74,9 +74,10 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	// main function
 	computeShaderSource += "void main(){\n"
 		"\tvec3 gridSize = gl_NumWorkGroups.xyz * gl_WorkGroupSize.xyz;\n"
-		"\tvec3 gridPos = vec3(gl_GlobalInvocationID) / (gridSize);\n"
-		"\tgridPos = (gridPos - .5) * 2;\n"
-		"\tgridPos.z = 0;\n"
+		"\tvec3 gridPos = vec3(gl_GlobalInvocationID);\n"
+		"\gridPos = (gridPos - ((vec3(gridSize)-1.0)/2.0))*vec3(" + std::to_string(gridGap.x) + "," + std::to_string(gridGap.y) +
+		", " + std::to_string(gridGap.z) + ");\n"
+
 		"\tuint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y * gridSize.x) + gl_GlobalInvocationID.z * gridSize.x * gridSize.y);\n"
 		"\tvec3 E = vec3(0);\n";
 	int SSBOobjectsize = 0;
@@ -87,31 +88,29 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	computeShaderSource += "\tcalculatedPos[id] = E;\n}";
-	//Info(computeShaderSource);
 	
-	// make position buffer for source objects
+	// make position buffer for source objects. this is here because we need bufsize
 	glGenBuffers(1, &objectsSSBO);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectsSSBO);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, bufsize, nullptr, GL_STATIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, objectsSSBO);
 
+	SendSOjectsPos();
+
+	Info(computeShaderSource);
+
+	return computeShaderSource;
+}
+
+
+void ComputeManager::SendSOjectsPos() {
 	// send in the positions and set buffer pos
 	for (auto& SObject : sourceObjects) {
 		SObject->buffer_pos = typeInfos[SObject->typeID].bufStartPos +
-			+ SObject->uniqueId
+			+SObject->uniqueId
 			* typeInfos[SObject->typeID].structSize;
-		SObject->StoreInBuffer(objectsSSBO,typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
+		SObject->StoreInBuffer(objectsSSBO, typeInfos[SObject->typeID].bufStartPos, SObject->uniqueId);
 	}
 
 	ISourceObject::SSBObuffer = objectsSSBO;
-
-	/*glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
-	float* data = (float*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	for (size_t i = 0; i < 100; i+=3)
-	{
-		Info(glm::vec3(data[i], data[i+1], data[i+2]));
-	}
-	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);*/
-	return computeShaderSource;
 }

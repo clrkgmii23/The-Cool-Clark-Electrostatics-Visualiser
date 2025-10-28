@@ -12,7 +12,11 @@ layout (std140, binding = 0) uniform Matrices{
 };
 
 void main(){
-	gl_Position = prespective * view *  (vec4(vec2(aPos.x, aPos.y)*.2, 0, 1) + vec4(position, 0));
+	mat3 newView = mat3(view);
+	mat3 inView = transpose(newView);
+	vec3 billboardPos = inView * (aPos*0.1);
+	vec4 worldPos = vec4(billboardPos + position, 1.0);
+	gl_Position = prespective * view * worldPos;
 
 	Pos = aPos;
 }

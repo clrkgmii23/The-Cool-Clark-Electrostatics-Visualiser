@@ -5,73 +5,66 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define GRID_WIDTH 32
+#define GRID_WIDTH  32
 #define GRID_HEIGHT 32
-#define GRID_LENGTH 1
+#define GRID_LENGTH 4
+
+#define GRID_GAP_X .1
+#define GRID_GAP_Y .1
+#define GRID_GAP_Z .1
 
 // temp function
 //void addElement()
-
-
-unsigned int MatUBO;
 
 void Core::SetUp() {
 	mainCam = std::make_unique<Camera>();
 	mainCam->x_rot_sen = 0.7;
 	mainCam->y_rot_sen = 0.7;
 
+	// shaders
 	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
 	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag");
 	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag");
-	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(0, 0,0)
-		, -1, *basicShader));
-	sourceObjects.push_back(std::make_unique<ChargedCircle>(
-		glm::vec3(0, 0, 0)
-		, 1, 0.5, *circleShader));
-	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
-		glm::vec3(.5, 0, 0)
-		, -1, *lineShader));
-	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
-		glm::vec3(-.5, 0, 0)
-		, -1, *lineShader));
-	basicShader->UseProgram();
-	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
 
-	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
+	// add objects
+	sourceObjects.push_back(std::make_unique<PointCharge>(
+		glm::vec3(-.5, 0,0)
+		, -1, *basicShader));
+	sourceObjects.push_back(std::make_unique<PointCharge>(
+		glm::vec3(.5, 0,0)
+		, 1, *basicShader));
+	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
+		glm::vec3(0, 0, 0)
+		, 10, *lineShader));
+
+
+	// compute
+	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), 
+		glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
 	computeManager->ComputeContributions();
+
 	// renderer
 	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
-		GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH);
+		glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
 
-	// uniform buffer object
-	glGenBuffers(1, &MatUBO);
-	glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	glBindBufferBase(GL_UNIFORM_BUFFER, 0, MatUBO);
+	SetUpUniformBuffer();
+	UpdatePres();
 }
 
 void Core::MainLoop() {
 	glClearColor(0.3, 0.6, 0.1, 1.0);
-	//glLineWidth(3);
+	glLineWidth(3);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT);
-		// TEST PART
+		//
 		
-		glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
-		glm::mat4 view = mainCam->GetViewMatrix();
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
+		sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
+		sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
 
-		glm::mat4 prespective = glm::perspective(glm::radians(70.0f), (float)windowWidth / (float)windowHeight, 0.001f, 1000.0f);
-		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(prespective));
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-
-		sourceObjects[0]->MoveTo(glm::vec3(cos(_time), sin(_time), 0));
+		UpdateView();
 
 		// COMPUTE PART
 		computeManager->ComputeContributions();
@@ -86,13 +79,13 @@ void Core::MainLoop() {
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
-		//Info(std::to_string(1/deltaTime)); // see frames
+		Info(std::to_string(1/deltaTime)); // see frames
 	}
 }
 
 // initialise glfw
 Core::Core(int width, int height, const char* title): 
-	windowWidth(width), windowHeight(height){
+	windowWidth(width), windowHeight(height), MatUBO(0){
 	if (width < 1 || height < 1 || title == nullptr) {
 		ErrorMessage("Invalid inputs when creating CORE");
 	}
@@ -138,6 +131,28 @@ Core::Core(int width, int height, const char* title):
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+void Core::SetUpUniformBuffer() {
+	glGenBuffers(1, &MatUBO);
+	glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 0, MatUBO);
+}
+
+void Core::UpdateView()
+{
+	glBindBuffer(GL_UNIFORM_BUFFER, MatUBO);
+	glm::mat4 view = mainCam->GetViewMatrix();
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
+}
+void Core::UpdatePres()
+{
+	glm::mat4 prespective = glm::perspective(glm::radians(70.0f), (float)windowWidth / (float)windowHeight, 0.001f, 1000.0f);
+	glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(prespective));
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+
 Core::~Core()
 {
 
@@ -160,10 +175,10 @@ void Core::GLFWWindowSizeCallback(GLFWwindow* window, int width, int height)
 void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int height) {
 	windowWidth = width;
 	windowHeight = height;
+	if (windowHeight < 1) windowHeight = 1;
+	if (windowWidth < 1) windowWidth = 1;
 
-	basicShader->UseProgram();
-	//Info(std::to_string((float)windowWidth / (float)windowHeight));
-	basicShader->SetFloat("aspectRatio", (float)windowWidth / (float)windowHeight);
+	UpdatePres();
 }
 
 float lastX = 0;
