@@ -5,16 +5,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define VIS_TYPE STREAM_LINES
+
 #define GRID_WIDTH  32
 #define GRID_HEIGHT 32
-#define GRID_LENGTH 4
+#define GRID_LENGTH 32
 
 #define GRID_GAP_X .1
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-// temp function
-//void addElement()
+#define STEP_SIZE 200
 
 void Core::SetUp() {
 	mainCam = std::make_unique<Camera>();
@@ -28,50 +29,57 @@ void Core::SetUp() {
 
 	// add objects
 	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(-.5, 0,0)
-		, -1, *basicShader));
-	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(.5, 0,0)
+		glm::vec3(-0.5, 0, 0 )
 		, 1, *basicShader));
+	sourceObjects[0]->seedNum = 100;
+	sourceObjects.push_back(std::make_unique<PointCharge>(
+		glm::vec3(0.5, 0, 0)
+		, -1, *basicShader));
 	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
 		glm::vec3(0, 0, 0)
 		, 10, *lineShader));
 
-
 	// compute
-	computeManager = std::make_unique<ComputeManager>(sourceObjects, "Src/Shaders/shader.comp", glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), 
-		glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
-	computeManager->ComputeContributions();
-
+	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
 	// renderer
-	renderer = std::make_unique<Renderer>(sourceObjects, computeManager->positionBuffer, "Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag", 
-		glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
+	renderer = std::make_unique<Renderer>(computeManager->vistype, sourceObjects, computeManager->positionBuffer);
 
+	if (VIS_TYPE == GRID_3D) {
+		computeManager->ConfigureGrid3D(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
+		renderer->ConfigureGrid3D(computeManager->gridSize, computeManager->gridGap);
+	}
+	
+	else if (VIS_TYPE == STREAM_LINES){
+		computeManager->ConfigureStreamLines(STEP_SIZE);
+		renderer->ConfigureStreamLines(computeManager->stepNum, computeManager->pointNum);
+	}
+
+	computeManager->Compute(); // comment it in mainLoop if you don't want it to update each frame
 	SetUpUniformBuffer();
 	UpdatePres();
 }
 
 void Core::MainLoop() {
 	glClearColor(0.3, 0.6, 0.1, 1.0);
-	glLineWidth(3);
+	glLineWidth(1);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 
 		double _time = glfwGetTime();
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//
 		
-		sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
-		sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
+		//sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
+		//sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
 
 		UpdateView();
 
 		// COMPUTE PART
-		computeManager->ComputeContributions();
+		computeManager->Compute();
 
 		// RENDER  PART
+		renderer->Visualise();
 		renderer->DrawShapes();
-		renderer->DrawGrid();
 
 		// ETC
 		glfwSwapBuffers(window);
@@ -79,7 +87,7 @@ void Core::MainLoop() {
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
-		Info(std::to_string(1/deltaTime)); // see frames
+		//Info(std::to_string(1/deltaTime)); // see frames
 	}
 }
 
@@ -127,6 +135,7 @@ Core::Core(int width, int height, const char* title):
 	glEnable(GL_MULTISAMPLE);
 
 	// enabling stuff and configuing it here
+	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }

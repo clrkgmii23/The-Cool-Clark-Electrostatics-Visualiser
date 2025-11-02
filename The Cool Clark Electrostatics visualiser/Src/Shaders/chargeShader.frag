@@ -2,7 +2,9 @@
 
 out vec4 FragColor;
 in vec3 Pos;
+uniform float charge;
 void main(){
-	float d = smoothstep(.5, .48,length(Pos));
-	FragColor = vec4(d, d, d, d);
+	float d = smoothstep(.5, .47,length(Pos));
+	vec3 col = mix(vec3(.4,.4,1), vec3(1,.4,.4), 2*charge - 0.5*charge);
+	FragColor = vec4(col.x*d, col.y*d, col.z*d, d);
 }

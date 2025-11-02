@@ -12,17 +12,23 @@
 
 class Renderer {
 public:
+	visType vistype; 
 	unsigned int positionBuffer;
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
-	std::unique_ptr<Shader> gridShader;
-	glm::vec3 gridSize;
-	glm::vec3 gridGap;
-	unsigned int gridSizeN;
-	Renderer(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
-		unsigned int positionBuffer, const char* vertexShaderPath, const char* fragmentShaderPath,
-		glm::vec3 gridSize, glm::vec3 gridGap);
+	std::unique_ptr<Shader> visualiserShader;
+	glm::vec3 gridSize = glm::vec3(0);
+	glm::vec3 gridGap =  glm::vec3(0);
+	unsigned int gridSizeN = 0;
+	unsigned int stepNum = 0;
+	unsigned int pointNum = 0;
+	Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
+		unsigned int positionBuffer);
 	~Renderer();
-	void DrawGrid();
+	void Visualise();
+	void VisualiseGrid3D();
+	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
+	void VisualisStreamLines();
+	void ConfigureStreamLines(int stepNum, int pointNum);
 	void DrawShapes();
 
 private:

@@ -8,9 +8,10 @@
 class ISourceObject {
 public:
 	unsigned int buffer_pos = 0;
-
+	float charge = 1.0;
+	int seedNum = 0;
 	virtual void Draw() = 0;
-	virtual std::string ElectricFieldContribution() = 0;
+	virtual std::string FieldContribution(std::string funcName) = 0;
 	virtual void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) = 0;
 	virtual glm::vec3 GetPos() { return glm::vec3(0);};
 	virtual void MoveTo(glm::vec3 trans) = 0;
@@ -20,7 +21,6 @@ public:
 	int uniqueId; 
 	static int SSBObuffer;
 	virtual ~ISourceObject() = default;
-	
 };
 
 template<typename DERIVED, typename DERIVEDSTRUCT>
@@ -90,10 +90,11 @@ public:
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
 
-	// computing aspect
-	virtual std::string ElectricFieldContribution() { // get function to generate electric field in a compute shader
 
-		// super hacky and jank way of getting the function definition from a file, but works
+
+	// computing aspect
+	virtual std::string FieldContribution(std::string funcName) {
+		// this gets fieldCalc function + struct
 		std::ifstream file("Src/Shaders/SODefinitions.comp");
 		if (!file.is_open()) {
 			ErrorMessage("Could Not Open Source Object Definitions File");
@@ -101,11 +102,11 @@ public:
 		std::string funcDef;
 		std::string line;
 		bool found = false;
-		// function name is typeID + "ElectricField"
-		std::string funcName = "vec3 " + typeID + "ElectricField";
+		// function name example: typeID + "ElectricField"
+		funcName = "vec3 " + typeID + funcName;
 		std::string structName = "struct " + typeID;
 		while (std::getline(file, line)) {
-			if (found) break;
+			if (found) break; // break from the entire loop
 			if (line.compare(0, funcName.length(), funcName) == 0) {
 				funcDef += line + "\n";
 				while (std::getline(file, line)) {
@@ -116,8 +117,8 @@ public:
 						}
 					}
 			}
+			// include struct
 			else if (line.compare(0, structName.length(), structName) == 0) {
-				// struct
 				funcDef += line + "\n";
 				while (std::getline(file, line)) {
 					funcDef += line + "\n";
@@ -187,7 +188,6 @@ struct alignas(16) PointChargeStruct { // this will take 32 bytes
 class PointCharge : public SourceObject<PointCharge, PointChargeStruct> {
 public:
 	// properties
-	float charge = 1.0f;
 	PointCharge(glm::vec3 pos, float charge, Shader& shader)
 		: SourceObject<PointCharge, PointChargeStruct>(pos, shader) {
 		typeID = "PointCharge";
@@ -218,6 +218,15 @@ public:
 
 		this->store(buffer, buf_pos, own_pos, size, &pointCharge);
 	}
+
+	void Draw() override {
+		glBindVertexArray(VAO);
+		shader.UseProgram();
+		shader.SetVec3("position", pos);
+		shader.SetFloat("charge", charge);
+		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
 };
 
 //--------------------------------------- INFINITE LINE ---------------------------------------//
@@ -230,7 +239,6 @@ struct alignas(16) InfiniteChargedLineStruct {
 class InfiniteChargedLine : public SourceObject<InfiniteChargedLine, InfiniteChargedLineStruct> {
 public:
 	// properties
-	float charge = 1.0f;
 	InfiniteChargedLine(glm::vec3 pos, float charge, Shader& shader)
 		: SourceObject<InfiniteChargedLine, InfiniteChargedLineStruct>(pos, shader) {
 		typeID = "InfiniteChargedLine";
@@ -278,12 +286,11 @@ struct alignas(16) ChargedCircleStruct {
 class ChargedCircle : public SourceObject<ChargedCircle, ChargedCircleStruct> {
 public:
 	// properties
-	float charge = 1.0;
 	float radius = 0.5;
 	ChargedCircle(glm::vec3 pos, float charge, float radius, Shader& shader)
-		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius),
-	charge(charge) {
+		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius){
 		typeID = "ChargedCircle";
+		this->charge = charge;
 	}
 
 	void initialSetUp() {

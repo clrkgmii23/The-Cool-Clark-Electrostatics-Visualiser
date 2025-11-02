@@ -19,11 +19,32 @@ struct PointCharge{ // this will take 32 bytes
 //
 vec3 PointChargeElectricField(PointCharge pointcharge, vec3 gridPos){
 	float r = distance(gridPos, pointcharge.position);
-	if (r < 0.0001) return vec3(0);
+	if (r < 0.001) return vec3(0);
 	vec3 u = vec3(gridPos.x - pointcharge.position.x, gridPos.y - pointcharge.position.y,
 	gridPos.z - pointcharge.position.z)/r;
 	float E = k*pointcharge.charge/(r*r);
 	return E*vec3(u);
+}
+
+layout(binding = 0, std430) buffer positionBuffer {
+        vec3 calculatedPos[];
+};
+
+int stepAmount = 10;
+void PointChargeDistributePoints(PointCharge pointcharge, int i_abs, int i, int n){
+	float theta = i * PI * (3-sqrt(5));
+	float R = 0.05;
+	float y = R*(1-float(i)/(n-1) * 2);
+	float radius = sqrt(R*R-y*y);
+	float x = radius * cos(theta);
+	float z = radius * sin(theta);
+	// get it there!!
+	//float theta = i * PI * (3.0f - sqrt(5.0f));
+	//float R = 0.05f;
+	//float x = R * cos(theta);
+	//float y = R * sin(theta);
+	//float z = 0;
+	calculatedPos[stepAmount*i_abs] = pointcharge.position + vec3(x, y, z);
 }
 
 //									  Infinite Charged Line								//
@@ -42,7 +63,10 @@ vec3 InfiniteChargedLineElectricField(InfiniteChargedLine infiniteChargedLine, v
 	float E = infiniteChargedLine.charge/(2*PI*e_0*r); 
 	return E*vec3(u);
 }
-
+void InfiniteChargedLineDistributePoints(InfiniteChargedLine infiniteChargedLine, int i_abs, int i, int n){
+	
+	calculatedPos[stepAmount*i_abs] = infiniteChargedLine.position + 0.01*vec3(cos(i*2*PI/n), 0, sin(i*2*PI/n));
+}
 //											Charged Circle								//
 
 struct ChargedCircle{ // this will take 32 bytes
@@ -54,7 +78,6 @@ struct ChargedCircle{ // this will take 32 bytes
 vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
 	// E = Rdthtea/r^3 u
 	vec3 E = vec3(0);
-	vec3 E2 = vec3(0);
 	float R = chargedcircle.radius;
 
 	// integrating over the circle, approximation
@@ -70,4 +93,9 @@ vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
 		E += R*dTheta/(r*r*r) * u;
 	}
 	return k*chargedcircle.charge * E;  // test difference
+}
+
+void ChargedCircleDistributePoints(ChargedCircle chargedCircle, int i_abs, int i, int n){
+	
+	calculatedPos[stepAmount*i_abs] = chargedCircle.position + chargedCircle.radius *1.1 *vec3(cos(i*2*PI/n), sin(i*2*PI/n), 0);
 }

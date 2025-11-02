@@ -35,11 +35,11 @@ void Camera::HandleMouseInput(float xpos, float ypos, bool isShift) {
 		x_rot += deltaX * x_rot_sen;
 		y_rot += deltaY * y_rot_sen;
 
-		if (y_rot > 89.0f)
-			y_rot = 89.0f;
+		if (y_rot > 89.9f)
+			y_rot = 89.9f;
 
-		else if (y_rot < -89.0f)
-		y_rot = -89.0f;
+		else if (y_rot < -89.9f)
+		y_rot = -89.9f;
 	}
 	else {
 		targetPos -= camRight * deltaX * speedX;
