@@ -21,6 +21,7 @@ public:
 	unsigned int gridSizeN = 0;
 	unsigned int stepNum = 0;
 	unsigned int pointNum = 0;
+	bool dashed = true;
 	Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 		unsigned int positionBuffer);
 	~Renderer();

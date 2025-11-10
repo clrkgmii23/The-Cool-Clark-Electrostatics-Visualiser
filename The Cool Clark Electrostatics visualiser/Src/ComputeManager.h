@@ -27,6 +27,7 @@ public:
 
 	int stepNum = 60;
 	int pointNum = 0;
+	float streamLinesdeltaTime = 0;
 	unsigned int positionBuffer = 0; // buffer for grid vector positions
 	unsigned int objectsSSBO = 0; //buffer for source objects and their properties
 
@@ -46,7 +47,7 @@ public:
 	void grid3dSource(std::string& computeShaderSource);
 
 	void StreamLinesSource(std::string& computeShaderSource);
-	void ConfigureStreamLines(int stepNum);
+	void ConfigureStreamLines(int stepNum, float streamLinesdeltaTime);
 
 	void SendSOjectsPos();
 	void Compute();

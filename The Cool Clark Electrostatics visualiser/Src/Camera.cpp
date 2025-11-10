@@ -27,13 +27,11 @@ void Camera::CalculateVectors(){
 	camUp = normalize(glm::cross(camRight, camFront));
 }
 
-void Camera::HandleMouseInput(float xpos, float ypos, bool isShift) {
-	float deltaX = xpos - lastX;
-	float deltaY = ypos - lastY;
+void Camera::HandleMouseInput(float xOffset, float yOffset, bool isShift) {
 
 	if (!isShift){
-		x_rot += deltaX * x_rot_sen;
-		y_rot += deltaY * y_rot_sen;
+		x_rot += xOffset * x_rot_sen;
+		y_rot += yOffset * y_rot_sen;
 
 		if (y_rot > 89.9f)
 			y_rot = 89.9f;
@@ -42,15 +40,15 @@ void Camera::HandleMouseInput(float xpos, float ypos, bool isShift) {
 		y_rot = -89.9f;
 	}
 	else {
-		targetPos -= camRight * deltaX * speedX;
-		targetPos += camUp * deltaY * speedY;
+		targetPos -= camRight * camRad * xOffset * speedX;
+		targetPos += camUp * camRad * yOffset * speedY;
 	}
 	CalculateVectors();
 }
 
 void Camera::HandleScroll(float xoffset, float yoffset)
 {
-	camRad -= yoffset * 0.1f;
+	camRad -= yoffset * camRad * 0.1f;
 	if (camRad < 0.1f)
 		camRad = 0.1f;
 	else if (camRad > 100.0f)

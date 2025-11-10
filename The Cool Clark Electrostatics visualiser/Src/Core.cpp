@@ -15,56 +15,59 @@
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-#define STEP_SIZE 200
+#define STEP_SIZE 400
+#define STREAM_LINE_STEP_TIME float(1)/60
 
 void Core::SetUp() {
 	mainCam = std::make_unique<Camera>();
 	mainCam->x_rot_sen = 0.7;
 	mainCam->y_rot_sen = 0.7;
-
 	// shaders
-	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag");
-	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag");
-	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag");
+	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag", true);
+	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag", true);
+	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag", true);
 
 	// add objects
 	sourceObjects.push_back(std::make_unique<PointCharge>(
 		glm::vec3(-0.5, 0, 0 )
 		, 1, *basicShader));
-	sourceObjects[0]->seedNum = 100;
-	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(0.5, 0, 0)
-		, -1, *basicShader));
-	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(
-		glm::vec3(0, 0, 0)
-		, 10, *lineShader));
+	sourceObjects[0]->seedNum = 50;
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(
+		glm::vec3(0, 0, 1.5)
+		, -1, 1, *circleShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(
+		glm::vec3(0, 0, 3.5)
+		, -5, .4, *circleShader));
 
 	// compute
 	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
 	// renderer
 	renderer = std::make_unique<Renderer>(computeManager->vistype, sourceObjects, computeManager->positionBuffer);
-
 	if (VIS_TYPE == GRID_3D) {
 		computeManager->ConfigureGrid3D(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
 		renderer->ConfigureGrid3D(computeManager->gridSize, computeManager->gridGap);
 	}
 	
 	else if (VIS_TYPE == STREAM_LINES){
-		computeManager->ConfigureStreamLines(STEP_SIZE);
+		computeManager->ConfigureStreamLines(STEP_SIZE, STREAM_LINE_STEP_TIME);
 		renderer->ConfigureStreamLines(computeManager->stepNum, computeManager->pointNum);
+		//renderer->dashed = false;
 	}
 
+	// interaction
+	interactionManager = std::make_unique<InteractionManager>(sourceObjects, windowWidth, windowHeight);
 	computeManager->Compute(); // comment it in mainLoop if you don't want it to update each frame
 	SetUpUniformBuffer();
 	UpdatePres();
+
 }
 
 void Core::MainLoop() {
-	glClearColor(0.3, 0.6, 0.1, 1.0);
-	glLineWidth(1);
 	// the holy loop!!
 	while (!glfwWindowShouldClose(window)) {
 
+		glLineWidth(1);
+		glClearColor(0.3, 0.6, 0.1, 1.0);
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//
@@ -124,6 +127,7 @@ Core::Core(int width, int height, const char* title):
 	glfwSetErrorCallback(GLFWErrorCallback);
 	glfwSetWindowSizeCallback(window, GLFWWindowSizeCallback);
 	glfwSetCursorPosCallback(window, GLFWMouseCallback);
+	glfwSetMouseButtonCallback(window, GLFWMouseButtonCallback);
 	glfwSetScrollCallback(window, GLFWScrollCallback);
 
 
@@ -188,6 +192,8 @@ void Core::GLFWWindowSizeCallbackBounce(GLFWwindow* window, int width, int heigh
 	if (windowWidth < 1) windowWidth = 1;
 
 	UpdatePres();
+
+	interactionManager->Resize(width, height);
 }
 
 float lastX = 0;
@@ -201,12 +207,35 @@ void Core::GLFWMouseCallback(GLFWwindow* window, double xpos, double ypos) {
 
 void Core::GLFWMouseCallbackBounce(GLFWwindow* window, double xpos, double ypos)
 {
-	if(glfwGetMouseButton(window, 0) == GLFW_PRESS)
-		mainCam->HandleMouseInput(xpos, ypos, glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
+	float xOffset = xpos - mainCam->lastX;
+	float yOffset = mainCam->lastY - ypos;
+	interactionManager->MoveSelectedObject(xOffset, yOffset,windowWidth,  windowHeight, *mainCam);
+
+	//if (glfwGetMouseButton(window, 0) == GLFW_PRESS) // left clicking
+	if(glfwGetMouseButton(window, 1) == GLFW_PRESS) // right clicking
+		mainCam->HandleMouseInput(xOffset, -yOffset, glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
 
 	mainCam->lastX = (float)xpos;
 	mainCam->lastY = (float)ypos;
+}
 
+void Core::GLFWMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
+	if (myCore)
+		myCore->GLFWMouseButtonCallbackBounce(window, button, action, mods);
+}
+
+void Core::GLFWMouseButtonCallbackBounce(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) { // left click
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		interactionManager->OnLeftClick(xpos, ypos, windowWidth, windowHeight);
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){ // left release
+
+		interactionManager->LeftMouseReleased = true;
+	}
 }
 
 void Core::GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset)

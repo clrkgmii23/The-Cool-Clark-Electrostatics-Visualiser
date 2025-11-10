@@ -5,9 +5,18 @@
 
 class Shader {
 public:
-	unsigned int program;
-	Shader() {}; // default constructer because the compiler won't stop complaining about it
-	Shader(const char* vertexPath, const char* FragmentPath);
+	unsigned int program = 0;
+	unsigned int fragShader = 0;
+	bool saveVert = false;
+	unsigned int vertShader = 0;
+	bool saveFrag = false;
+	static unsigned int SetUpShader(const char* shaderChar, int shaderType);
+	static void checkProgramError(unsigned int program);
+	// default constructer because the compiler won't stop complaining about it
+	Shader() = default;
+	Shader(const char* vertexPath, const char* FragmentPath, bool saveVert = false, bool saveFrag = false);
+	Shader(std::string vertexSource, std::string fragmentSource, bool saveVert = false, bool saveFrag = false);
+	Shader(unsigned int vertexID, unsigned int fragmentID, bool saveVert = false, bool saveFrag = false);
 	~Shader();
 	int UseProgram() const;
 	// uniform setters

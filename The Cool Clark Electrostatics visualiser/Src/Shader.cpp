@@ -6,7 +6,7 @@
 #include "utils.h" // for file reading
 
 // helper function to make my life easier and my code prettier
-unsigned int static SetUpShader(const char*& shaderChar, int shaderType) {
+unsigned int Shader::SetUpShader(const char* shaderChar, int shaderType) {
 	unsigned int shader;
 	shader = glCreateShader(shaderType);
 	glShaderSource(shader, 1, &shaderChar, NULL);
@@ -23,9 +23,9 @@ unsigned int static SetUpShader(const char*& shaderChar, int shaderType) {
 			shaderTypeName = "FRAGMENT";
 			break;
 		case GL_COMPUTE_SHADER:
-			shaderTypeName = " !COMPUTE! ";
+			shaderTypeName = "!!!COMPUTE!!!";
 			break;
-		};
+	};
 
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
@@ -34,14 +34,14 @@ unsigned int static SetUpShader(const char*& shaderChar, int shaderType) {
 
 		std::vector<char> info(infoLength);
 		glGetShaderInfoLog(shader, infoLength, NULL, info.data());
-		std::string Infostr{ info.data()};
+		std::string Infostr{ info.data() };
 		ErrorMessage("Error While COMPILING " + shaderTypeName + " SHADER\nINFOLOG: "
 			+ Infostr);
 	}
 	return shader;
 }
 
-void checkProgramError(unsigned int program) {
+void Shader::checkProgramError(unsigned int program) {
 	int success;
 	char info[512];
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
@@ -57,29 +57,38 @@ void checkProgramError(unsigned int program) {
 	}
 }
 
-Shader::Shader(const char* vertexPath, const char* FragmentPath) :
-	program(0)
-
+Shader::Shader(const char* vertexPath, const char* FragmentPath,
+	bool saveVert, bool saveFrag) :
+	Shader(ReadFile(vertexPath), ReadFile(FragmentPath), saveVert, saveFrag) // redirect
 {
-	std::string vertexString = ReadFile(vertexPath);
-	std::string fragmentString = ReadFile(FragmentPath);
-	const char* vertexChar = vertexString.c_str();
-	const char* fragmentChar = fragmentString.c_str();
+}
 
-	unsigned int vertexShader = SetUpShader(vertexChar, GL_VERTEX_SHADER);
-	unsigned int fragmentShader = SetUpShader(fragmentChar, GL_FRAGMENT_SHADER);
 
+Shader::Shader(std::string vertexSource, std::string fragmentSource, bool saveVert, bool saveFrag):
+	Shader(SetUpShader(vertexSource.c_str(), GL_VERTEX_SHADER) , SetUpShader(fragmentSource.c_str(), GL_FRAGMENT_SHADER) , saveVert, saveFrag)
+{
+
+}
+
+
+Shader::Shader(unsigned int vertexID, unsigned int fragmentID, bool saveVert, bool saveFrag) // program stuff
+: program(0), saveVert(saveVert), saveFrag(saveFrag)
+{
+	vertShader = vertexID;
+	fragShader = fragmentID;
 	// program stuff
 	program = glCreateProgram();
-	glAttachShader(program, vertexShader);
-	glAttachShader(program, fragmentShader);
+	glAttachShader(program, vertexID);
+	glAttachShader(program, fragmentID);
 	glLinkProgram(program);
 
 	checkProgramError(program);
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
+	if (!saveVert)
+		glDeleteShader(vertexID);
+	if (!saveFrag)
+		glDeleteShader(fragmentID);
 }
+
 
 int Shader::UseProgram() const{
 	glUseProgram(program);
@@ -88,6 +97,10 @@ int Shader::UseProgram() const{
 
 Shader::~Shader() {
 	glDeleteProgram(program);
+	if (saveVert)
+		glDeleteShader(vertShader);
+	if (saveFrag)
+		glDeleteShader(fragShader);
 }
 
 // uniform stuff
@@ -124,6 +137,7 @@ void Shader::SetMat4(const char* name, glm::mat4 value) {
 
 unsigned int Shader::GetLoc(const char* name)
 {
+
 	if (uniformCache.count(name)) {
 		return uniformCache[name];
 	}

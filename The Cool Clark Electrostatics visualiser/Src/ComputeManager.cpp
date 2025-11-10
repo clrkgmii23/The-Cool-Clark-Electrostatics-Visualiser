@@ -25,9 +25,10 @@ void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::v
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
-void ComputeManager::ConfigureStreamLines(int _stepNum) {
+void ComputeManager::ConfigureStreamLines(int _stepNum, float _streamLinesdeltaTime) {
 	if (vistype != STREAM_LINES) ErrorMessage("Trying To Configure Wrong VISTYPE");
 	stepNum = _stepNum;
+	streamLinesdeltaTime = _streamLinesdeltaTime;
 	computeShaderID = std::make_unique<ComputeShader>(GenerateComputeShaderSource());
 }
 
@@ -123,7 +124,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 	
 
-	Info(computeShaderSource);
+	//Info(computeShaderSource);
 
 	return computeShaderSource;
 }
@@ -195,7 +196,7 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 	"\tint i = int(gl_GlobalInvocationID.x);\n";
 		
 	computeShaderSource += "int stepAmount = " + std::to_string(stepNum) + ";\n";
-	computeShaderSource += "float deltaTime = " + std::to_string(1.0/60) + ";\n"; // TODO: not constant
+	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n"; // TODO: not constant
 
 	int n_0 = 0;
 	std::unordered_map<std::string, int> objectInfo;
@@ -212,7 +213,7 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 
 		seedingComputeShaderSource += "}";
 
-		Info(seedingComputeShaderSource);
+		//Info(seedingComputeShaderSource);
 
 		glGenBuffers(1, &positionBuffer);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);

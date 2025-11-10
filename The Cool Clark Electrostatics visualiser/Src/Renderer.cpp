@@ -53,7 +53,7 @@ void Renderer::VisualisStreamLines()
 {
 	visualiserShader->UseProgram();
 	glBindVertexArray(VAO);
-	glDrawArraysInstanced(GL_LINES, 0, stepNum, pointNum);
+	glDrawArraysInstanced(dashed? GL_LINES: GL_LINE_STRIP, 0, stepNum, pointNum);
 	glBindVertexArray(0);
 }
 

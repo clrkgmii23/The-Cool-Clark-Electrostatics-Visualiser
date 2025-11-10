@@ -7,18 +7,20 @@
 // a kind of "container class" so I can group all Source Objects into one vector
 class ISourceObject {
 public:
-	unsigned int buffer_pos = 0;
 	float charge = 1.0;
 	int seedNum = 0;
-	virtual void Draw() = 0;
+	virtual void Draw(bool useOwnShader = true) = 0;
 	virtual std::string FieldContribution(std::string funcName) = 0;
 	virtual void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) = 0;
-	virtual glm::vec3 GetPos() { return glm::vec3(0);};
+	virtual glm::vec3 GetPos() { return glm::vec3(0); };
 	virtual void MoveTo(glm::vec3 trans) = 0;
+	virtual void AddPos(glm::vec3 trans) = 0;
 	virtual int GetStructSize() = 0;
+	virtual Shader* GetShader() = 0;
 	virtual void store(unsigned int buffer, int buf_pos, int own_pos, unsigned size, const void* data) = 0;
+	unsigned int buffer_pos = 0;
 	std::string typeID;
-	int uniqueId; 
+	int uniqueId = 0;
 	static int SSBObuffer;
 	virtual ~ISourceObject() = default;
 };
@@ -26,12 +28,12 @@ public:
 template<typename DERIVED, typename DERIVEDSTRUCT>
 class SourceObject : public ISourceObject {
 public:
-	Shader& shader;
 	// every object needs a position
 	glm::vec3 pos;
+	Shader& shader;
 
-	SourceObject( glm::vec3 &pos, Shader& shader): shader(shader),
-	pos(pos)
+	SourceObject(glm::vec3& pos, Shader& shader) : shader(shader),
+		pos(pos)
 	{
 		if (counter == 0) {
 			static_cast<DERIVED*>(static_cast<void*>(this))->initialSetUp();
@@ -56,7 +58,7 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, verticesSize, vertices, GL_STATIC_DRAW);
 
-		if(indices != nullptr) {
+		if (indices != nullptr) {
 			// EBO
 			glGenBuffers(1, &EBO);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -70,9 +72,10 @@ public:
 	}
 
 	// drawing aspect
-	virtual void Draw() {
+	virtual void Draw(bool useOwnShader = true) {
 		glBindVertexArray(VAO);
-		shader.UseProgram();
+		if (bool useOwnShader = true)
+			shader.UseProgram();
 		shader.SetVec3("position", pos);
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -83,14 +86,21 @@ public:
 
 	void MoveTo(glm::vec3 trans) override {
 		pos = trans;
-		// send it to the buffer too
+		sendToBuffer();
+	}
+
+	void AddPos(glm::vec3 trans) override {
+		pos += trans;
+		sendToBuffer();
+	}
+
+	void sendToBuffer() {
+		// update position in buffer 
 		if (SSBObuffer == -1) return;
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBObuffer);
 		glBufferSubData(GL_SHADER_STORAGE_BUFFER, buffer_pos, sizeof(glm::vec3), &pos);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
-
-
 
 	// computing aspect
 	virtual std::string FieldContribution(std::string funcName) {
@@ -114,8 +124,8 @@ public:
 					if (line == "}") {
 						found = true;
 						break;
-						}
 					}
+				}
 			}
 			// include struct
 			else if (line.compare(0, structName.length(), structName) == 0) {
@@ -134,11 +144,15 @@ public:
 		if (!found) ErrorMessage("Could Not Find Function Definition For " + funcName);
 
 		funcDef += "\n\n";
-		return funcDef; 
+		return funcDef;
 	}
 
 	int GetStructSize() {
 		return sizeof(DERIVEDSTRUCT);
+	}
+
+	Shader* ISourceObject::GetShader() override {
+		return &shader;
 	}
 
 	void store(unsigned int buffer, int buf_pos, int own_pos, unsigned size, const void* data) override {
@@ -219,9 +233,10 @@ public:
 		this->store(buffer, buf_pos, own_pos, size, &pointCharge);
 	}
 
-	void Draw() override {
+	void Draw(bool useOwnShader = true) override {
 		glBindVertexArray(VAO);
-		shader.UseProgram();
+		if (useOwnShader)
+			shader.UseProgram();
 		shader.SetVec3("position", pos);
 		shader.SetFloat("charge", charge);
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
@@ -258,9 +273,10 @@ public:
 		AfterSetUp(sizeof(vertices), vertices, sizeof(indices), indices);
 	}
 
-	void Draw() override {
+	void Draw(bool useOwnShader = true) override {
 		glBindVertexArray(VAO);
-		shader.UseProgram();
+		if (useOwnShader)
+			shader.UseProgram();
 		shader.SetVec3("position", pos);
 		glDrawElements(GL_LINES, indicesCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -288,7 +304,7 @@ public:
 	// properties
 	float radius = 0.5;
 	ChargedCircle(glm::vec3 pos, float charge, float radius, Shader& shader)
-		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius){
+		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius) {
 		typeID = "ChargedCircle";
 		this->charge = charge;
 	}
@@ -299,31 +315,32 @@ public:
 		// TODO: don't hard code 100 here
 		const int N = 100;
 		//this->radius = 0.5;
-		for (int i = 0; i < 4*N + 2; i++)
+		for (int i = 0; i < 4 * N + 2; i++)
 		{
 			float angle = (2 * pi) * i / N;
-			vertices.push_back(this->pos.x + cos(angle));
-			vertices.push_back(this->pos.y + sin(angle));
-			vertices.push_back(this->pos.z);
+			vertices.push_back(cos(angle));
+			vertices.push_back(sin(angle));
+			vertices.push_back(0);
 		}
 
 
 		AfterSetUp(vertices.size(), vertices.data(), 0, nullptr);
 	}
 
-	void Draw() override {
+	void Draw(bool useOwnShader = true) override {
 		glBindVertexArray(VAO);
-		shader.UseProgram();
+		if (useOwnShader)
+			shader.UseProgram();
 		const int N = 100;
 		shader.SetVec3("position", pos);
 		shader.SetFloat("radius", this->radius);
-		glDrawArrays(GL_LINE_STRIP, 0, N+1);
+		glDrawArrays(GL_LINE_STRIP, 0, N + 1);
 		glBindVertexArray(0);
 	}
 
 	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
 
-		ChargedCircleStruct chargedCircle = { pos, charge, radius};
+		ChargedCircleStruct chargedCircle = { pos, charge, radius };
 		int size = GetStructSize();
 
 		this->store(buffer, buf_pos, own_pos, size, &chargedCircle);
