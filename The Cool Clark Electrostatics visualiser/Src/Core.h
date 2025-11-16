@@ -22,12 +22,9 @@ public:
 
 	double deltaTime = 0.0;
 
-	std::unique_ptr<Shader> basicShader;
-	std::unique_ptr<Shader> lineShader;
-	std::unique_ptr<Shader> circleShader;
-
 	std::unique_ptr<ComputeManager> computeManager;
 	std::unique_ptr<Renderer> renderer;
+	std::unique_ptr<CommonShaders> commonShaders;
 	std::unique_ptr<Camera> mainCam;
 	std::unique_ptr<InteractionManager> interactionManager;
 	// long ass type name
@@ -48,8 +45,9 @@ private:
 	void GLFWMouseCallbackBounce(GLFWwindow* window, double xpos, double ypos);
 	static void GLFWMouseButtonCallback(GLFWwindow* window, int button, int action, int mods); // clicking
 	void GLFWMouseButtonCallbackBounce(GLFWwindow* window, int button, int action, int mods);
+	static void GLFWKeyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	void GLFWKeyboardCallbackBounce(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	void GLFWScrollCallbackBounce(GLFWwindow* window, double xoffset, double yoffset);
 	void HandleIKeyboardInput();
-
 };

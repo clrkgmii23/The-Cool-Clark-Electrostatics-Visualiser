@@ -39,16 +39,18 @@ public:
 	std::unordered_map<std::string, TypeInfo> typeInfos;
 
 	std::unique_ptr<ComputeShader> computeShaderID;
+	std::unique_ptr<ComputeShader> SeedingcomputeShaderID;
 	
 	ComputeManager(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects);
 	std::string GenerateComputeShaderSource();
-
 	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
-	void grid3dSource(std::string& computeShaderSource);
-
-	void StreamLinesSource(std::string& computeShaderSource);
 	void ConfigureStreamLines(int stepNum, float streamLinesdeltaTime);
+	void Compute();
+
+
+private:
+	void grid3dSource(std::string& computeShaderSource);
+	void StreamLinesSource(std::string& computeShaderSource);
 
 	void SendSOjectsPos();
-	void Compute();
 };

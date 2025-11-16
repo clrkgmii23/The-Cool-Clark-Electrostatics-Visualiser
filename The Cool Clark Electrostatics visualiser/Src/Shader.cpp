@@ -37,6 +37,7 @@ unsigned int Shader::SetUpShader(const char* shaderChar, int shaderType) {
 		std::string Infostr{ info.data() };
 		ErrorMessage("Error While COMPILING " + shaderTypeName + " SHADER\nINFOLOG: "
 			+ Infostr);
+		glDeleteShader(shader);
 	}
 	return shader;
 }
@@ -54,6 +55,7 @@ void Shader::checkProgramError(unsigned int program) {
 		std::string infoStr{ info.data() };
 		ErrorMessage("Error While LINKING PROGRAM\nINFOLOG: "
 			+ infoStr);
+		glDeleteProgram(program);
 	}
 }
 
@@ -146,12 +148,16 @@ unsigned int Shader::GetLoc(const char* name)
 	return loc;
 }
 
-
 //							    COMPUTE SHADER IMPLEMENTATION
 
 
 ComputeShader::ComputeShader(const char* sourcePath): ComputeShader(ReadFile(sourcePath))
 	{}
+
+ComputeShader::~ComputeShader()
+{
+	glDeleteProgram(program);
+}
 
 ComputeShader::ComputeShader(const std::string& computeShaderSource) {
 	const char* c_computeShader = computeShaderSource.c_str();

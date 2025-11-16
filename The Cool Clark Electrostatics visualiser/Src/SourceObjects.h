@@ -74,7 +74,7 @@ public:
 	// drawing aspect
 	virtual void Draw(bool useOwnShader = true) {
 		glBindVertexArray(VAO);
-		if (bool useOwnShader = true)
+		if (useOwnShader)
 			shader.UseProgram();
 		shader.SetVec3("position", pos);
 		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
@@ -262,8 +262,8 @@ public:
 
 	void initialSetUp() {
 		float vertices[] = {
-			 0, 1,0,
-			 0,-1,0
+			 0, 100,0,
+			 0,-100,0
 		};
 
 		unsigned int indices[] = {
@@ -314,7 +314,6 @@ public:
 		const float pi = 3.14159265359;
 		// TODO: don't hard code 100 here
 		const int N = 100;
-		//this->radius = 0.5;
 		for (int i = 0; i < 4 * N + 2; i++)
 		{
 			float angle = (2 * pi) * i / N;
@@ -322,7 +321,6 @@ public:
 			vertices.push_back(sin(angle));
 			vertices.push_back(0);
 		}
-
 
 		AfterSetUp(vertices.size(), vertices.data(), 0, nullptr);
 	}
@@ -339,7 +337,6 @@ public:
 	}
 
 	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
-
 		ChargedCircleStruct chargedCircle = { pos, charge, radius };
 		int size = GetStructSize();
 

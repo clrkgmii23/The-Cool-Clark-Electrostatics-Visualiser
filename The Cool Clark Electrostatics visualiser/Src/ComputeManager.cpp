@@ -6,8 +6,7 @@ int ISourceObject::SSBObuffer = -1; // c++ quirk
 
 ComputeManager::ComputeManager(visType vistype,std::vector<std::unique_ptr<ISourceObject>>& sourceObjects):
 	vistype(vistype), sourceObjects(sourceObjects)
-{
-}
+{}
 
 void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::vec3 _gridGap = glm::vec3(0.5)) {
 	if (vistype != GRID_3D) ErrorMessage("Trying To Configure Wrong VISTYPE");
@@ -15,14 +14,6 @@ void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::v
 	gridGap = _gridGap;
 
 	computeShaderID = std::make_unique<ComputeShader>(GenerateComputeShaderSource());
-
-	unsigned int gridSizeN = gridSize.x * gridSize.y * gridSize.z;
-	glGenBuffers(1, &positionBuffer);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
-	// std430 apparently requires padding to vec4, so multiplying by 4 rather than 3 for the vec3 array
-	glBufferData(GL_SHADER_STORAGE_BUFFER, gridSizeN * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 void ComputeManager::ConfigureStreamLines(int _stepNum, float _streamLinesdeltaTime) {
@@ -48,8 +39,19 @@ void ComputeManager::Compute()
 
 std::string ComputeManager::GenerateComputeShaderSource()
 {
-	std::string computeShaderSource = "#version 430 core\n";
+	// init, so we can regenerate any time (will change this so it doesn't create new ones everytime)
+	if (positionBuffer > 0) {
+		glDeleteBuffers(1, &positionBuffer);
+	}
+	if (objectsSSBO > 0) {
+		glDeleteBuffers(1, &objectsSSBO);
+	}
 
+	typeInfos.clear();
+	this->pointNum = 0; // crucial
+
+	//
+	std::string computeShaderSource = "#version 430 core\n";
 	if (vistype == GRID_3D) {
 		computeShaderSource += "layout (local_size_x = " + std::to_string(X_INVOCATION_NUM) +
 			", local_size_y = " + std::to_string(Y_INVOCATION_NUM) +
@@ -67,12 +69,11 @@ std::string ComputeManager::GenerateComputeShaderSource()
 			", local_size_y = 1"
 			", local_size_z = 1"
 			") in;\n";
-
 	}
 
 	computeShaderSource += "layout(binding = 0, std430) buffer positionBuffer {\n"
-		"	vec3 calculatedPos[];\n};\n\n"
-		"float k = 1; \n" // change as your heart content
+		"vec3 calculatedPos[];\n};\n\n"
+		"float k = 1; \n" // change as your heart's content
 		"float e_0 = 1; \n"
 		"float PI = 3.14159265359;\n"
 	    "float PHI = 1.61803398874;\n";
@@ -123,13 +124,21 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		break;
 	}
 	
-
 	//Info(computeShaderSource);
 
 	return computeShaderSource;
 }
 
 void ComputeManager::grid3dSource(std::string& computeShaderSource) {
+
+	unsigned int gridSizeN = gridSize.x * gridSize.y * gridSize.z;
+	glGenBuffers(1, &positionBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
+	// std430 apparently requires padding to vec4, so multiplying by 4 rather than 3 for the vec3 array
+	glBufferData(GL_SHADER_STORAGE_BUFFER, gridSizeN * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
 	computeShaderSource += "void main(){\n"
 		"\tvec3 gridSize = gl_NumWorkGroups.xyz * gl_WorkGroupSize.xyz;\n"
 		"\tvec3 gridPos = vec3(gl_GlobalInvocationID);\n"
@@ -146,6 +155,7 @@ void ComputeManager::grid3dSource(std::string& computeShaderSource) {
 	}
 
 	computeShaderSource += "\tcalculatedPos[id] = E;\n}";
+	//Info(computeShaderSource);
 }
 
 // TODO: actual good todo, don't really like this function, maybe find another way that doesn't read from the top everytime and close the file.
@@ -217,14 +227,13 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 
 		glGenBuffers(1, &positionBuffer);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, stepNum * pointNum * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
-
-		ComputeShader seedingComputeShader(seedingComputeShaderSource);
-		unsigned int xGroupNum = (pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
-		seedingComputeShader.Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+		SeedingcomputeShaderID = std::make_unique<ComputeShader>(seedingComputeShaderSource);
+		unsigned int xGroupNum = (pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+		SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// back to our original shader
 		computeShaderSource +=

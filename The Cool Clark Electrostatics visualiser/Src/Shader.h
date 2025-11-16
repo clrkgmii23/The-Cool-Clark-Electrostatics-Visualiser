@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <unordered_map>
 #include <string>
+#include <memory>
 
 class Shader {
 public:
@@ -38,6 +39,20 @@ public:
 	// kind of a dumb design, if you pass you pass a const char, it considers it a path
 	// if you pass a string, it considers it a source
 	ComputeShader(const char* sourcePath);
+	~ComputeShader();
 	ComputeShader(const std::string& computeShaderSource);
 	void Compute(unsigned int x, unsigned int y, unsigned int z, unsigned int BARRIER_BIT);
+};
+
+
+struct CommonShaders {
+	std::unique_ptr<Shader> basicShader;
+	std::unique_ptr<Shader> lineShader;
+	std::unique_ptr<Shader> circleShader;
+
+	CommonShaders() {
+		basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag", true);
+		lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag", true);
+		circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag", true);
+	}
 };

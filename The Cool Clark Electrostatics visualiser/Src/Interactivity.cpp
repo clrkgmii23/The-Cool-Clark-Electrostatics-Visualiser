@@ -1,21 +1,37 @@
 #include "Interactivity.h"
+#include <GLFW/glfw3.h>
+#include <functional>
 
-InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, int width, int height):sourceObjects(sourceObjects)
+// CONTROLS:
+//	- MOUSE:	shift right drag -> move camera
+//	- MOUSE:	right drag -> rotate camera
+//	- MOUSE:	mouse scroll -> zoom/unzoom camera
+//	- MOUSE:	left drag on object -> move object
+//  - KEYBOARD: shift {P OR L OR C} -> add source object
+
+InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, int width, int height,
+	std::unique_ptr<CommonShaders>& commonShaders, std::unique_ptr<ComputeManager>& computeManager,
+	std::unique_ptr<Renderer>& renderer):sourceObjects(sourceObjects), commonShaders(commonShaders),
+	computeManager(computeManager),renderer(renderer)
 {
 	std::string fragmentString = ReadFile("Src/Shaders/PickingShader.frag");
 	const char* fragmentchar = fragmentString.c_str();
 
-	unsigned int pickingShader = Shader::SetUpShader(fragmentchar, GL_FRAGMENT_SHADER);
+	 pickingShader = Shader::SetUpShader(fragmentchar, GL_FRAGMENT_SHADER);
 
 	for (size_t i = 0; i < sourceObjects.size(); i++)
 	{
-		// i --> Shader
-		if (sourceObjects[i]->GetShader()->vertShader == 0) {
-			ErrorMessage("Object With i = " + std::to_string(i) + " Didn't Save It's VERTEX shader");
-		}
-		pickingShaders.push_back(std::make_unique<Shader>(sourceObjects[i]->GetShader()->vertShader, pickingShader));
+		setPickingShader(*sourceObjects[i]);
 	}
 	CreateFBO(width, height);
+}
+
+void InteractionManager::setPickingShader(ISourceObject& srcObj) {
+	// i --> Shader
+	if (srcObj.GetShader()->vertShader == 0) {
+		ErrorMessage("Object" + srcObj.typeID + ": "  + std::to_string(srcObj.uniqueId)+ " Didn't Save It's VERTEX shader");
+	}
+	pickingShaders.push_back(std::make_unique<Shader>(srcObj.GetShader()->vertShader, pickingShader));
 }
 
 InteractionManager::~InteractionManager()
@@ -79,6 +95,31 @@ void InteractionManager::OnLeftClick(int x, int y, int width, int height) {
 	LeftMouseReleased = false;
 }
 
+void InteractionManager::onKeyPressDown(int key, int scancode, int action, int mods)
+{
+	// this is a temporary solution, since we don't have a UI!
+	// (and temporary solutions are the most permanent ones)
+	std::unordered_map<int, std::function<std::unique_ptr<ISourceObject>()>> KeyToObj {
+		{GLFW_KEY_P, [this]() { return std::make_unique<PointCharge>(glm::vec3(0,0,0), 1, *commonShaders->basicShader); }},
+		{GLFW_KEY_C, [this]() { return std::make_unique<ChargedCircle>(glm::vec3(0,0,0), 1, 1, *commonShaders->circleShader); }},
+		{GLFW_KEY_L, [this]() { return std::make_unique<InfiniteChargedLine>(glm::vec3(0,0,0), 1, *commonShaders->lineShader); }}
+	};
+
+	// adding objects
+	for (const auto &pair: KeyToObj)
+	{
+		if (key == pair.first && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
+			sourceObjects.push_back(pair.second());
+			sourceObjects[sourceObjects.size() - 1]->seedNum = 5; // give it a default seed so it looks interesting
+			setPickingShader(*sourceObjects[sourceObjects.size() - 1]);
+
+			computeManager->computeShaderID = std::make_unique<ComputeShader>(computeManager->GenerateComputeShaderSource()); // !!!! REGENERATE ENTIRE COMPUTE SHADER !!!!
+			renderer->positionBuffer = computeManager->positionBuffer;
+			renderer->pointNum = computeManager->pointNum;
+		}
+	}
+}
+
 void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int windowWidth, int windowHeight, Camera& cam)
 {
 	if (LeftMouseReleased || selectedObject == 0) return;
@@ -89,14 +130,26 @@ void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int wi
 	glm::vec3 moveOffset = (xOffset * cam.camRight + yOffset * cam.camUp)* PixelToWorld;
 
 	sourceObjects[selectedObject - 1]->AddPos(moveOffset);
+
+	// update the starting seed positions
+	if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
+		unsigned int xGroupNum = (computeManager->pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+		computeManager->SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+	}
 }
 
 void InteractionManager::Resize(int width, int height)
 {
 	glBindTexture(GL_TEXTURE_2D, FBOtexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA8, GL_UNSIGNED_BYTE, NULL); // huh, 800x600 fixed... hmmm
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
 	glBindRenderbuffer(GL_RENDERBUFFER, FBRO);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+template <typename objType, typename objTypeStruct>
+void InteractionManager::AddObject(SourceObject<objType, objType> obj) {
+	sourceObjects.push_back(obj);
 }

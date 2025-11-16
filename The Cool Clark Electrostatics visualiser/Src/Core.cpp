@@ -15,33 +15,29 @@
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-#define STEP_SIZE 400
-#define STREAM_LINE_STEP_TIME float(1)/60
+#define STEP_SIZE 100
+#define STREAM_LINE_STEP_TIME float(1)/30
 
 void Core::SetUp() {
 	mainCam = std::make_unique<Camera>();
 	mainCam->x_rot_sen = 0.7;
 	mainCam->y_rot_sen = 0.7;
-	// shaders
-	basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag", true);
-	lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag", true);
-	circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag", true);
 
 	// add objects
+	commonShaders = std::make_unique<CommonShaders>();
 	sourceObjects.push_back(std::make_unique<PointCharge>(
 		glm::vec3(-0.5, 0, 0 )
-		, 1, *basicShader));
-	sourceObjects[0]->seedNum = 50;
+		, 1, *commonShaders->basicShader));
+	sourceObjects[0]->seedNum = 5;
 	sourceObjects.push_back(std::make_unique<ChargedCircle>(
 		glm::vec3(0, 0, 1.5)
-		, -1, 1, *circleShader));
+		, -1, 1, *commonShaders->circleShader));
 	sourceObjects.push_back(std::make_unique<ChargedCircle>(
 		glm::vec3(0, 0, 3.5)
-		, -5, .4, *circleShader));
+		, -5, .4, *commonShaders->circleShader));
 
-	// compute
 	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
-	// renderer
+
 	renderer = std::make_unique<Renderer>(computeManager->vistype, sourceObjects, computeManager->positionBuffer);
 	if (VIS_TYPE == GRID_3D) {
 		computeManager->ConfigureGrid3D(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_LENGTH), glm::vec3(GRID_GAP_X, GRID_GAP_Y, GRID_GAP_Z));
@@ -51,15 +47,14 @@ void Core::SetUp() {
 	else if (VIS_TYPE == STREAM_LINES){
 		computeManager->ConfigureStreamLines(STEP_SIZE, STREAM_LINE_STEP_TIME);
 		renderer->ConfigureStreamLines(computeManager->stepNum, computeManager->pointNum);
-		//renderer->dashed = false;
+		renderer->dashed = false;
 	}
 
 	// interaction
-	interactionManager = std::make_unique<InteractionManager>(sourceObjects, windowWidth, windowHeight);
+	interactionManager = std::make_unique<InteractionManager>(sourceObjects, windowWidth, windowHeight, commonShaders, computeManager, renderer);
 	computeManager->Compute(); // comment it in mainLoop if you don't want it to update each frame
 	SetUpUniformBuffer();
 	UpdatePres();
-
 }
 
 void Core::MainLoop() {
@@ -72,9 +67,14 @@ void Core::MainLoop() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//
 		
-		//sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
-		//sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
-
+		sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
+		sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
+		// we need to update the seeds, I am not putting this into sourceObject.h because I do not want to, 
+		// passing the compute manager to sourceObject.h feels wrong
+		if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
+			unsigned int xGroupNum = (computeManager->pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+			computeManager->SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+		}
 		UpdateView();
 
 		// COMPUTE PART
@@ -90,7 +90,7 @@ void Core::MainLoop() {
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
-		//Info(std::to_string(1/deltaTime)); // see frames
+		Info(std::to_string(1/deltaTime)); // see frames
 	}
 }
 
@@ -128,6 +128,7 @@ Core::Core(int width, int height, const char* title):
 	glfwSetWindowSizeCallback(window, GLFWWindowSizeCallback);
 	glfwSetCursorPosCallback(window, GLFWMouseCallback);
 	glfwSetMouseButtonCallback(window, GLFWMouseButtonCallback);
+	glfwSetKeyCallback(window, GLFWKeyboardCallback);
 	glfwSetScrollCallback(window, GLFWScrollCallback);
 
 
@@ -170,6 +171,7 @@ Core::~Core()
 {
 
 }
+
 //					---------- the callbacks ----------
 void Core::GLFWErrorCallback(int error, const char* description)
 {
@@ -211,7 +213,6 @@ void Core::GLFWMouseCallbackBounce(GLFWwindow* window, double xpos, double ypos)
 	float yOffset = mainCam->lastY - ypos;
 	interactionManager->MoveSelectedObject(xOffset, yOffset,windowWidth,  windowHeight, *mainCam);
 
-	//if (glfwGetMouseButton(window, 0) == GLFW_PRESS) // left clicking
 	if(glfwGetMouseButton(window, 1) == GLFW_PRESS) // right clicking
 		mainCam->HandleMouseInput(xOffset, -yOffset, glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
 
@@ -238,6 +239,18 @@ void Core::GLFWMouseButtonCallbackBounce(GLFWwindow* window, int button, int act
 	}
 }
 
+void Core::GLFWKeyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
+	if (myCore)
+		myCore->GLFWKeyboardCallbackBounce(window, key, scancode, action, mods);
+}
+
+void Core::GLFWKeyboardCallbackBounce(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	interactionManager->onKeyPressDown(key, scancode, action, mods);
+}
+
 void Core::GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	Core* myCore = (Core*)glfwGetWindowUserPointer(window);
@@ -248,7 +261,7 @@ void Core::GLFWScrollCallback(GLFWwindow* window, double xoffset, double yoffset
 void Core::GLFWScrollCallbackBounce(GLFWwindow* window, double xoffset, double yoffset){
 	mainCam->HandleScroll(xoffset, yoffset);
 }
-
+// checks for Input continuously
 void Core::HandleIKeyboardInput() {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
