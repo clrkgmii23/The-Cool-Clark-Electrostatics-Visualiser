@@ -15,7 +15,7 @@
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-#define STEP_SIZE 100
+#define STEP_SIZE 400
 #define STREAM_LINE_STEP_TIME float(1)/30
 
 void Core::SetUp() {
@@ -28,7 +28,7 @@ void Core::SetUp() {
 	sourceObjects.push_back(std::make_unique<PointCharge>(
 		glm::vec3(-0.5, 0, 0 )
 		, 1, *commonShaders->basicShader));
-	sourceObjects[0]->seedNum = 5;
+	sourceObjects[0]->seedNum = 50;
 	sourceObjects.push_back(std::make_unique<ChargedCircle>(
 		glm::vec3(0, 0, 1.5)
 		, -1, 1, *commonShaders->circleShader));
@@ -51,7 +51,7 @@ void Core::SetUp() {
 	}
 
 	// interaction
-	interactionManager = std::make_unique<InteractionManager>(sourceObjects, windowWidth, windowHeight, commonShaders, computeManager, renderer);
+	interactionManager = std::make_unique<InteractionManager>(sourceObjects, windowWidth, windowHeight, commonShaders, computeManager, renderer, mainCam);
 	computeManager->Compute(); // comment it in mainLoop if you don't want it to update each frame
 	SetUpUniformBuffer();
 	UpdatePres();
@@ -62,13 +62,13 @@ void Core::MainLoop() {
 	while (!glfwWindowShouldClose(window)) {
 
 		glLineWidth(1);
-		glClearColor(0.3, 0.6, 0.1, 1.0);
+		glClearColor(0.9, 0.9, 0.9, 1.0);
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//
 		
 		sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
-		sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
+		//sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
 		// we need to update the seeds, I am not putting this into sourceObject.h because I do not want to, 
 		// passing the compute manager to sourceObject.h feels wrong
 		if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
@@ -90,7 +90,7 @@ void Core::MainLoop() {
 		glfwPollEvents();
 
 		deltaTime = glfwGetTime() - _time;
-		Info(std::to_string(1/deltaTime)); // see frames
+		//Info(std::to_string(1/deltaTime)); // see frames
 	}
 }
 
@@ -235,7 +235,7 @@ void Core::GLFWMouseButtonCallbackBounce(GLFWwindow* window, int button, int act
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){ // left release
 
-		interactionManager->LeftMouseReleased = true;
+		interactionManager->SetLeftMouseRelease(true);
 	}
 }
 

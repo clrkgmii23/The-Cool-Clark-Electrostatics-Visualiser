@@ -1,5 +1,4 @@
 #include "Interactivity.h"
-#include <GLFW/glfw3.h>
 #include <functional>
 
 // CONTROLS:
@@ -11,8 +10,8 @@
 
 InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, int width, int height,
 	std::unique_ptr<CommonShaders>& commonShaders, std::unique_ptr<ComputeManager>& computeManager,
-	std::unique_ptr<Renderer>& renderer):sourceObjects(sourceObjects), commonShaders(commonShaders),
-	computeManager(computeManager),renderer(renderer)
+	std::unique_ptr<Renderer>& renderer, std::unique_ptr<Camera>& cam):sourceObjects(sourceObjects), commonShaders(commonShaders),
+	computeManager(computeManager),renderer(renderer), cam(cam)
 {
 	std::string fragmentString = ReadFile("Src/Shaders/PickingShader.frag");
 	const char* fragmentchar = fragmentString.c_str();
@@ -99,12 +98,6 @@ void InteractionManager::onKeyPressDown(int key, int scancode, int action, int m
 {
 	// this is a temporary solution, since we don't have a UI!
 	// (and temporary solutions are the most permanent ones)
-	std::unordered_map<int, std::function<std::unique_ptr<ISourceObject>()>> KeyToObj {
-		{GLFW_KEY_P, [this]() { return std::make_unique<PointCharge>(glm::vec3(0,0,0), 1, *commonShaders->basicShader); }},
-		{GLFW_KEY_C, [this]() { return std::make_unique<ChargedCircle>(glm::vec3(0,0,0), 1, 1, *commonShaders->circleShader); }},
-		{GLFW_KEY_L, [this]() { return std::make_unique<InfiniteChargedLine>(glm::vec3(0,0,0), 1, *commonShaders->lineShader); }}
-	};
-
 	// adding objects
 	for (const auto &pair: KeyToObj)
 	{
@@ -113,11 +106,22 @@ void InteractionManager::onKeyPressDown(int key, int scancode, int action, int m
 			sourceObjects[sourceObjects.size() - 1]->seedNum = 5; // give it a default seed so it looks interesting
 			setPickingShader(*sourceObjects[sourceObjects.size() - 1]);
 
-			computeManager->computeShaderID = std::make_unique<ComputeShader>(computeManager->GenerateComputeShaderSource()); // !!!! REGENERATE ENTIRE COMPUTE SHADER !!!!
+			computeManager->computeShaderID = std::make_unique<ComputeShader>(computeManager->GenerateComputeShaderSource()); // !!!! REGENERATE ENTIRE COMPUTE SHADER, currently mandatory!!!!
 			renderer->positionBuffer = computeManager->positionBuffer;
 			renderer->pointNum = computeManager->pointNum;
 		}
 	}
+
+	// axis locking
+	if		(key == GLFW_KEY_X && action == GLFW_PRESS) lockAxis = glm::vec3(1,0,0);
+	else if (key == GLFW_KEY_Y && action == GLFW_PRESS) lockAxis = glm::vec3(0,1,0);
+	else if (key == GLFW_KEY_Z && action == GLFW_PRESS) lockAxis = glm::vec3(0,0,1);
+	// plane locking
+	if (key == GLFW_KEY_X && action == GLFW_PRESS && (mods == GLFW_MOD_SHIFT)) lockAxis = glm::vec3(0, 1, 1);
+	else if (key == GLFW_KEY_Y && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) lockAxis = glm::vec3(1,0,1);
+	else if (key == GLFW_KEY_Z && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) lockAxis = glm::vec3(1,1,0);
+
+	Info(lockAxis);
 }
 
 void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int windowWidth, int windowHeight, Camera& cam)
@@ -129,7 +133,7 @@ void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int wi
 
 	glm::vec3 moveOffset = (xOffset * cam.camRight + yOffset * cam.camUp)* PixelToWorld;
 
-	sourceObjects[selectedObject - 1]->AddPos(moveOffset);
+	sourceObjects[selectedObject - 1]->AddPos(moveOffset * lockAxis);
 
 	// update the starting seed positions
 	if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
@@ -147,6 +151,15 @@ void InteractionManager::Resize(int width, int height)
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void InteractionManager::SetLeftMouseRelease(bool val)
+{
+	LeftMouseReleased = val;
+	if (val == true) { 
+		lockAxis = glm::vec3(1);
+		selectedObject = 0;
+	}
 }
 
 template <typename objType, typename objTypeStruct>
