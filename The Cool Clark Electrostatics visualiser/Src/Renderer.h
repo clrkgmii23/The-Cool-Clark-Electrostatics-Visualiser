@@ -21,11 +21,13 @@ public:
 	unsigned int gridSizeN = 0;
 	unsigned int stepNum = 0;
 	unsigned int pointNum = 0;
+	std::unique_ptr<Shader> ParticlesShader;
 	bool dashed = true;
 	Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 		unsigned int positionBuffer);
 	~Renderer();
 	void Visualise();
+	void VisualiseParticles(int numParticles);
 	void VisualiseGrid3D();
 	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
 	void VisualisStreamLines();

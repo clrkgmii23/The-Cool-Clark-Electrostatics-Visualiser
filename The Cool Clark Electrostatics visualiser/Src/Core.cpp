@@ -15,8 +15,14 @@
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-#define STEP_SIZE 400
-#define STREAM_LINE_STEP_TIME float(1)/30
+#define STEP_SIZE 300
+#define STREAM_LINE_STEP_TIME 0.01
+
+#define PARTICLES_NUM_X 100
+#define PARTICLES_NUM_Y 100
+#define PARTICLES_NUM_Z 100
+
+#define PARTICLES_GAP .01
 
 void Core::SetUp() {
 	mainCam = std::make_unique<Camera>();
@@ -25,16 +31,9 @@ void Core::SetUp() {
 
 	// add objects
 	commonShaders = std::make_unique<CommonShaders>();
-	sourceObjects.push_back(std::make_unique<PointCharge>(
-		glm::vec3(-0.5, 0, 0 )
-		, 1, *commonShaders->basicShader));
-	sourceObjects[0]->seedNum = 50;
-	sourceObjects.push_back(std::make_unique<ChargedCircle>(
-		glm::vec3(0, 0, 1.5)
-		, -1, 1, *commonShaders->circleShader));
-	sourceObjects.push_back(std::make_unique<ChargedCircle>(
-		glm::vec3(0, 0, 3.5)
-		, -5, .4, *commonShaders->circleShader));
+	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0,0,-0.5), -1, *commonShaders->basicShader));
+	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0,0,0.5), 1, *commonShaders->basicShader));
+	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(glm::vec3(0,0,0), -5	, *commonShaders->lineShader));
 
 	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
 
@@ -55,6 +54,11 @@ void Core::SetUp() {
 	computeManager->Compute(); // comment it in mainLoop if you don't want it to update each frame
 	SetUpUniformBuffer();
 	UpdatePres();
+
+	// new  stuff
+	computeManager->InitParticles(glm::vec3(PARTICLES_NUM_X, PARTICLES_NUM_Y, PARTICLES_NUM_Z),
+		glm::vec3(PARTICLES_GAP));
+
 }
 
 void Core::MainLoop() {
@@ -62,26 +66,28 @@ void Core::MainLoop() {
 	while (!glfwWindowShouldClose(window)) {
 
 		glLineWidth(1);
-		glClearColor(0.9, 0.9, 0.9, 1.0);
+		glClearColor(0.0, 0.0, 0.0, 1.0); // now we're in dark modes
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//
 		
-		sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
+		// movement example
+		//sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
 		//sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
-		// we need to update the seeds, I am not putting this into sourceObject.h because I do not want to, 
-		// passing the compute manager to sourceObject.h feels wrong
-		if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
-			unsigned int xGroupNum = (computeManager->pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
-			computeManager->SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
-		}
+		//// we need to update the seeds as well
+		//if (computeManager->vistype == STREAM_LINES && computeManager->SeedingcomputeShaderID) {
+		//	unsigned int xGroupNum = (computeManager->pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+		//	computeManager->SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+		//}
 		UpdateView();
 
 		// COMPUTE PART
 		computeManager->Compute();
-
+		if(interactionManager->timePlay)
+			computeManager->UpdateParticles();
 		// RENDER  PART
-		renderer->Visualise();
+		if(interactionManager->showVis)
+			renderer->Visualise();
+		renderer->VisualiseParticles(PARTICLES_NUM_X * PARTICLES_NUM_Y * PARTICLES_NUM_Z);
 		renderer->DrawShapes();
 
 		// ETC
@@ -142,6 +148,9 @@ Core::Core(int width, int height, const char* title):
 	// enabling stuff and configuing it here
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
+
+	glEnable(GL_PROGRAM_POINT_SIZE);
+
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 

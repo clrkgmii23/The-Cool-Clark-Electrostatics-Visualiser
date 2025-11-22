@@ -2,11 +2,15 @@
 #include <functional>
 
 // CONTROLS:
-//	- MOUSE:	shift right drag -> move camera
-//	- MOUSE:	right drag -> rotate camera
-//	- MOUSE:	mouse scroll -> zoom/unzoom camera
-//	- MOUSE:	left drag on object -> move object
+//	-    MOUSE:	shift right drag -> move camera
+//	-	      :	right drag -> rotate camera
+//	-	      :	mouse scroll -> zoom/unzoom camera
+//	-		  :	left drag on object -> move object
 //  - KEYBOARD: shift {P OR L OR C} -> add source object
+//  -         : {X OR Y OR Z} -> lock into axis
+//  -         : control {X OR Y OR Z} -> lock into plane
+//  -         : SPACE -> stop time
+//  -         : TAB   -> show/hide visualisation
 
 InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, int width, int height,
 	std::unique_ptr<CommonShaders>& commonShaders, std::unique_ptr<ComputeManager>& computeManager,
@@ -16,7 +20,7 @@ InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject
 	std::string fragmentString = ReadFile("Src/Shaders/PickingShader.frag");
 	const char* fragmentchar = fragmentString.c_str();
 
-	 pickingShader = Shader::SetUpShader(fragmentchar, GL_FRAGMENT_SHADER);
+	pickingShader = Shader::SetUpShader(fragmentchar, GL_FRAGMENT_SHADER);
 
 	for (size_t i = 0; i < sourceObjects.size(); i++)
 	{
@@ -117,11 +121,12 @@ void InteractionManager::onKeyPressDown(int key, int scancode, int action, int m
 	else if (key == GLFW_KEY_Y && action == GLFW_PRESS) lockAxis = glm::vec3(0,1,0);
 	else if (key == GLFW_KEY_Z && action == GLFW_PRESS) lockAxis = glm::vec3(0,0,1);
 	// plane locking
-	if (key == GLFW_KEY_X && action == GLFW_PRESS && (mods == GLFW_MOD_SHIFT)) lockAxis = glm::vec3(0, 1, 1);
-	else if (key == GLFW_KEY_Y && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) lockAxis = glm::vec3(1,0,1);
-	else if (key == GLFW_KEY_Z && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) lockAxis = glm::vec3(1,1,0);
+	if (key == GLFW_KEY_X && action == GLFW_PRESS && (mods == GLFW_MOD_CONTROL)) lockAxis = glm::vec3(0, 1, 1);
+	else if (key == GLFW_KEY_Y && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) lockAxis = glm::vec3(1,0,1);
+	else if (key == GLFW_KEY_Z && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) lockAxis = glm::vec3(1,1,0);
 
-	Info(lockAxis);
+	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) timePlay = !timePlay;
+	if (key == GLFW_KEY_TAB   && action == GLFW_PRESS) showVis= !showVis;
 }
 
 void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int windowWidth, int windowHeight, Camera& cam)
@@ -160,9 +165,4 @@ void InteractionManager::SetLeftMouseRelease(bool val)
 		lockAxis = glm::vec3(1);
 		selectedObject = 0;
 	}
-}
-
-template <typename objType, typename objTypeStruct>
-void InteractionManager::AddObject(SourceObject<objType, objType> obj) {
-	sourceObjects.push_back(obj);
 }

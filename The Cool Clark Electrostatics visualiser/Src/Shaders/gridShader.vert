@@ -26,8 +26,7 @@ void main(){
 	vec3 E = calculatedPos[id];
 	magnitude = length(E);
 	vec3 gridPos = vec3(x, y, z);
-	gridPos = (gridPos - (vec3(gridSize) - 1.0) / 2.0) * gridGap;
-
+	gridPos = (gridPos - (vec3(gridSize) - 1.0)*0.5f) * gridGap;
 
 	if(part == 1){
 		gl_Position = prespective * view * vec4(gridPos,1);

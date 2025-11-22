@@ -1,6 +1,6 @@
 #pragma once
 
-// this class will generate and compute and dispatch a compute shader to calculatecontribution for each SourceObject
+// this class will generate, compute and dispatch a compute shader to calculate the contribution for each SourceObject
 // and store them in an SSBO buffer, ready to go to the renderer
 
 #include "SourceObjects.h"
@@ -27,9 +27,11 @@ public:
 
 	int stepNum = 60;
 	int pointNum = 0;
+
 	float streamLinesdeltaTime = 0;
 	unsigned int positionBuffer = 0; // buffer for grid vector positions
 	unsigned int objectsSSBO = 0; //buffer for source objects and their properties
+	unsigned int particlesSSBO = 0; //buffer particles vel and pos
 
 	struct TypeInfo { // info for source object list
 		int count;
@@ -39,14 +41,21 @@ public:
 	std::unordered_map<std::string, TypeInfo> typeInfos;
 
 	std::unique_ptr<ComputeShader> computeShaderID;
+	std::unique_ptr<ComputeShader> particleShaderID;
 	std::unique_ptr<ComputeShader> SeedingcomputeShaderID;
 	
+	int particlesNum = 0;
+	glm::vec3 particlesGap = glm::vec3(1);
+
 	ComputeManager(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects);
 	std::string GenerateComputeShaderSource();
 	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
 	void ConfigureStreamLines(int stepNum, float streamLinesdeltaTime);
 	void Compute();
 
+	void CreateParticleShader(std::string computeShaderSource);
+	void UpdateParticles();
+	void InitParticles(glm::vec3 particleNums, glm::vec3 particlesGap);
 
 private:
 	void grid3dSource(std::string& computeShaderSource);

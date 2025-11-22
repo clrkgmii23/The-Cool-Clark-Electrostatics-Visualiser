@@ -3,5 +3,5 @@
 out vec4 FragColor;
 in float magnitude;
 void main(){
-	FragColor = vec4(magnitude/50, 0, 0, log(magnitude/3));
+	FragColor = vec4(magnitude/50, 1, 1, log(magnitude/3));
 }

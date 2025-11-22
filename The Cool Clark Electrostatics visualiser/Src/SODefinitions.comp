@@ -7,8 +7,8 @@
 #version 430 core // these are here just to make the linter not red and angry
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
 
-float k = 1;
-float e_0 = 1;
+float k = 8.99e9;
+float e_0 = 8.8e-12;
 float PI = 3.14159265359;
 
 //											Point Charge								//
@@ -59,7 +59,7 @@ vec3 InfiniteChargedLineElectricField(InfiniteChargedLine infiniteChargedLine, v
 	vecFromLtoP.y = 0;
 	float r = length(vecFromLtoP);
 	vec3 u = normalize(vecFromLtoP);
-	if (r < 0.0001) return vec3(0);
+	if (r < 0.001) return vec3(0);
 	float E = infiniteChargedLine.charge/(2*PI*e_0*r); 
 	return E*vec3(u);
 }
@@ -81,7 +81,7 @@ vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
 	float R = chargedcircle.radius;
 
 	// integrating over the circle, approximation
-	int N = 200; // number of segments
+	int N = 20; // number of segments
 	float dTheta = 2*PI/N;
 	for (int i = 0; i < N; i++){
 		float theta = i*dTheta;
@@ -89,7 +89,7 @@ vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
 						gridPos.y - chargedcircle.position.y - R*sin(theta),
 						gridPos.z - chargedcircle.position.z);
 		float r = length(u);
-		if (r < 0.001) continue;
+		if (r < 0.0001) continue;
 		E += R*dTheta/(r*r*r) * u;
 	}
 	return k*chargedcircle.charge * E;  // test difference

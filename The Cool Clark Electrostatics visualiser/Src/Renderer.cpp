@@ -9,6 +9,8 @@ Renderer::Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>&
 	positionBuffer(positionBuffer),
 	VAO(0) {
 	glGenVertexArrays(1, &VAO);
+	ParticlesShader = std::make_unique<Shader>("Src/Shaders/particle.vert",
+		"Src/Shaders/particle.frag");
 }
 
 Renderer::~Renderer()
@@ -38,6 +40,14 @@ void Renderer::Visualise()
 		ErrorMessage("Incorrect Visualising Type In Renderer");
 		break;
 	}
+}
+
+void Renderer::VisualiseParticles(int ParticlesNum)
+{
+	ParticlesShader->UseProgram();
+	glBindVertexArray(VAO);
+	glDrawArraysInstanced(GL_POINTS, 0, 1, ParticlesNum);
+	glBindVertexArray(0);
 }
 
 void Renderer::VisualiseGrid3D()

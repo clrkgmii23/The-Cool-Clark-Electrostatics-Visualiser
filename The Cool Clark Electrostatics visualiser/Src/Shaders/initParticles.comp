@@ -1,0 +1,22 @@
+#version 430
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 2) buffer particlesBuffer{
+	vec3 particleInfo[];
+};
+
+uniform ivec3 particleNum;
+uniform vec3 particlesGap;
+
+// particles will form a cube, with their velocity set to 0
+void main(){
+	int id = int(gl_GlobalInvocationID.x);
+	float x = id%particleNum.x;
+	float y = (id/particleNum.x)%particleNum.y;
+	float z = id/(particleNum.x*particleNum.y);
+	vec3 pos = (vec3(x, y, z) - (vec3(particleNum) - 1.0)*0.5f) * particlesGap;
+
+	particleInfo[id*2] = pos;
+	particleInfo[id*2+1] = vec3(0);
+}

@@ -38,6 +38,8 @@ public:
 
 	bool LeftMouseReleased = true;
 	void SetLeftMouseRelease(bool val);
+	bool showVis = true;
+	bool timePlay = false;
 
 	glm::vec3 lockAxis = glm::vec3(1);
 };

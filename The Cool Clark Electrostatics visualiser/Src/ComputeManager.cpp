@@ -4,9 +4,10 @@
 
 int ISourceObject::SSBObuffer = -1; // c++ quirk
 
-ComputeManager::ComputeManager(visType vistype,std::vector<std::unique_ptr<ISourceObject>>& sourceObjects):
+ComputeManager::ComputeManager(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects) :
 	vistype(vistype), sourceObjects(sourceObjects)
-{}
+{
+}
 
 void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::vec3 _gridGap = glm::vec3(0.5)) {
 	if (vistype != GRID_3D) ErrorMessage("Trying To Configure Wrong VISTYPE");
@@ -31,11 +32,12 @@ void ComputeManager::Compute()
 		unsigned int zGroupNum = (gridSize.z + Z_INVOCATION_NUM - 1) / Z_INVOCATION_NUM;
 		computeShaderID->Compute(xGroupNum, yGroupNum, zGroupNum, GL_SHADER_STORAGE_BARRIER_BIT);
 	}
-	else if(vistype == STREAM_LINES){
+	else if (vistype == STREAM_LINES) {
 		unsigned int xGroupNum = (pointNum + 64 - 1) / 64;
 		computeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 }
+
 
 std::string ComputeManager::GenerateComputeShaderSource()
 {
@@ -61,7 +63,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	else if (vistype == STREAM_LINES) {
 		for (size_t i = 0; i < sourceObjects.size(); i++)
 		{
-			if(sourceObjects[i]->charge > 0)
+			if (sourceObjects[i]->charge > 0)
 				this->pointNum += sourceObjects[i]->seedNum;
 		}
 
@@ -72,20 +74,20 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	computeShaderSource += "layout(binding = 0, std430) buffer positionBuffer {\n"
-		"vec3 calculatedPos[];\n};\n\n"
+		"\tvec3 calculatedPos[];\n};\n\n"
 		"float k = 1; \n" // change as your heart's content
 		"float e_0 = 1; \n"
 		"float PI = 3.14159265359;\n"
-	    "float PHI = 1.61803398874;\n";
-	
+		"float PHI = 1.61803398874;\n";
+
 	int bufsize = 0;
 	// loop on every object type, and store information about it in typeInfos
-	for(auto& SObject : sourceObjects)
+	for (auto& SObject : sourceObjects)
 	{
 		bufsize += SObject->GetStructSize();
 		if (typeInfos.find(SObject->typeID) == typeInfos.end()) {
 			//if(vistype != STREAM_LINES) // TODO: this shader doesn't need the field functions, maybe seperate field functions and structs
-				computeShaderSource += SObject->FieldContribution("ElectricField");
+			computeShaderSource += SObject->FieldContribution("ElectricField");
 			typeInfos[SObject->typeID].count = 1;
 			typeInfos[SObject->typeID].structSize = SObject->GetStructSize();
 			SObject->uniqueId = 0;
@@ -104,13 +106,25 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 	computeShaderSource += "};\n\n\n";
 
+	std::string fieldType = "ElectricField"; // TODO: you already know what to do
+	computeShaderSource +=
+		"\nvec3 contribution(vec3 pos){\n"
+		"\tvec3 res = vec3(0);\n";
+	for (const auto& pair : typeInfos) {
+		computeShaderSource +=
+			"\tfor(int j = 0; j < " + std::to_string(pair.second.count) + "; j++){\n"
+			"\tres += " + pair.first + fieldType + "(" + pair.first + "s[j], pos);\n\t}\n\n";
+	}
+	computeShaderSource += "\nreturn res;\n}\n";
+
 	// make position buffer for source objects. this is here because we need bufsize
 	glGenBuffers(1, &objectsSSBO);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectsSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, bufsize, nullptr, GL_STATIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, bufsize, nullptr, GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, objectsSSBO);
 
 	SendSOjectsPos();
+	CreateParticleShader(computeShaderSource);
 	// choose an appropriate main function
 	switch (vistype) {
 	case GRID_3D:
@@ -123,7 +137,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		ErrorMessage("Invalid Visualisation Type In Compute Shader");
 		break;
 	}
-	
+
 	//Info(computeShaderSource);
 
 	return computeShaderSource;
@@ -146,13 +160,7 @@ void ComputeManager::grid3dSource(std::string& computeShaderSource) {
 		", " + std::to_string(gridGap.z) + ");\n"
 
 		"\tuint id = uint(gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y * gridSize.x) + gl_GlobalInvocationID.z * gridSize.x * gridSize.y);\n"
-		"\tvec3 E = vec3(0);\n";
-	// per type operations here
-	std::string fieldType = "ElectricField"; // TODO: you already know what to do
-	for (const auto& pair : typeInfos) {
-		computeShaderSource += "\tfor(int i = 0; i < " + std::to_string(pair.second.count) + "; i++){\n"
-			"\t\tE += " + pair.first + fieldType+ "(" + pair.first + "s[i], gridPos);\n\t}\n\n";
-	}
+		"\tvec3 E = contribution(gridPos);\n";
 
 	computeShaderSource += "\tcalculatedPos[id] = E;\n}";
 	//Info(computeShaderSource);
@@ -191,7 +199,6 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 
 	// we will use a seperate compute shader to get the seeds for our streamlines. since it has a bunch of "if statement", which can cause 
 	// problems as they increase in a shader. so we're only gonna calculate the seeds once in one shader, and update them every frame in our main shader.
-	// and since I'm too lazy to write all that shader generation above, I'll just steal it from computeShaderSource and ignore the extra functions.
 
 	std::string seedingComputeShaderSource = computeShaderSource;
 	seedingComputeShaderSource += "int stepAmount = " + std::to_string(stepNum) + ";\n";
@@ -203,8 +210,8 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 	}
 
 	seedingComputeShaderSource += "void main(){\n"
-	"\tint i = int(gl_GlobalInvocationID.x);\n";
-		
+		"\tint i = int(gl_GlobalInvocationID.x);\n";
+
 	computeShaderSource += "int stepAmount = " + std::to_string(stepNum) + ";\n";
 	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n"; // TODO: not constant
 
@@ -216,44 +223,92 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 			std::string nameID = sourceObjects[i]->typeID;
 			int n_1 = n_0 + sourceObjects[i]->seedNum;
 			seedingComputeShaderSource += "\tif( " + std::to_string(n_0) + " <= i && i < " + std::to_string(n_1) + "){\n"
-				"\t\t" + nameID + "DistributePoints(" + nameID + "s[" + std::to_string(objectInfo[nameID]++) + "], i, i - " + std::to_string(n_0) + ", " + std::to_string(n_1-n_0)+ "); \n\t }\n";
+				"\t\t" + nameID + "DistributePoints(" + nameID + "s[" + std::to_string(objectInfo[nameID]++) + "], i, i - " + std::to_string(n_0) + ", " + std::to_string(n_1 - n_0) + "); \n\t }\n";
 			n_0 = n_1;
 		}
 	}
 
-		seedingComputeShaderSource += "}";
+	seedingComputeShaderSource += "}";
 
-		//Info(seedingComputeShaderSource);
+	//Info(seedingComputeShaderSource);
 
-		glGenBuffers(1, &positionBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, stepNum * pointNum * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	glGenBuffers(1, &positionBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, stepNum * pointNum * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, positionBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-		SeedingcomputeShaderID = std::make_unique<ComputeShader>(seedingComputeShaderSource);
-		unsigned int xGroupNum = (pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
-		SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
-
-		// back to our original shader
-		computeShaderSource +=
+	SeedingcomputeShaderID = std::make_unique<ComputeShader>(seedingComputeShaderSource);
+	unsigned int xGroupNum = (pointNum + X_INVOCATION_NUM - 1) / X_INVOCATION_NUM;
+	SeedingcomputeShaderID->Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+	// back to our original shader
+	computeShaderSource +=
 		"\nvoid main(){\n"
 		"\tint x = int(gl_GlobalInvocationID.x);\n"
-		"\tvec3 E = vec3(0);\n"
 		"\tfor(int i = 0; i < stepAmount-1; i++){\n"
-		"\t\tvec3 currentPos = calculatedPos[x*stepAmount + i];\n";
-		std::string fieldType = "ElectricField"; // TODO: you already know what to do
-		for (const auto& pair : typeInfos) {
-			computeShaderSource += "\t\tfor(int j = 0; j < " + std::to_string(pair.second.count) + "; j++){\n"
-				"\t\t\tE += " + pair.first + fieldType + "(" + pair.first + "s[j], currentPos);\n\t\t}\n\n";
-		}
-		computeShaderSource += 
-				"\t\tvec3 nextPos = calculatedPos[x*stepAmount + i] + normalize(E)*deltaTime;\n" // currently uses euler's method
-				"\t\tcalculatedPos[x*stepAmount + i + 1] = nextPos;\n"
-				"\t\tE = vec3(0);\n";
+		"\t\tvec3 currentPos = calculatedPos[x*stepAmount + i];\n"
 
-		computeShaderSource += "\n\t}\n}";
+		// RK4 looks bad
+		/*"\t\tvec3 K1 = contribution(currentPos);\n"
+		"\t\tvec3 K2 = contribution(currentPos + K1*deltaTime*0.5);\n"
+		"\t\tvec3 K3 = contribution(currentPos + K2*deltaTime*0.5);\n"
+		"\t\tvec3 K4 = contribution(currentPos + K3*deltaTime);\n"
+
+		"\t\tvec3 E = (1.0f/6.0f) * (K1 + 2*K2 + 2*K3 + K4);\n"*/
+		// euler (only direction) looks good
+		"\t\tvec3 E = normalize(contribution(currentPos));\n"
+
+		"\t\tvec3 nextPos = currentPos + clamp(E, vec3(-10), vec3(10))*deltaTime;\n"
+		"\t\tcalculatedPos[x*stepAmount + i + 1] = nextPos;\n";
+
+	computeShaderSource += "\n\t}\n}";
 }
+
+// particles
+
+void ComputeManager::InitParticles(glm::vec3 particlesNums, glm::vec3 particlesGap)
+{
+	particlesNum = particlesNums.x * particlesNums.y * particlesNums.z;
+	// this buffer will go like this [x,y,z, Vx, Vy, Vz, ...] and repeats
+	glGenBuffers(1, &particlesSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, particlesSSBO);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, particlesNum * 2 * 4* sizeof(float), nullptr, GL_STREAM_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, particlesSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	ComputeShader initComp("Src/Shaders/initParticles.comp");
+	initComp.UseProgram();
+	initComp.SetIVec3("particleNum", particlesNums);
+	initComp.SetVec3("particlesGap", particlesGap);
+
+	int xGroupNum = (particlesNum + 64 - 1) / 64;
+	initComp.Compute(xGroupNum, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+}
+
+//this function relies on typeinfos!
+void ComputeManager::CreateParticleShader(std::string computeShaderSource)
+{
+	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n";
+
+	computeShaderSource += 
+		"layout(std430, binding = 2) buffer	particlesBuffer{\n\tvec3 particleInfo[];\n};\n\n"
+		"void main(){\n"
+		"\tint id = int(gl_GlobalInvocationID.x);\n"
+		"\tvec3 currentPos = particleInfo[2*id];\n"
+		"\tvec3 currentVel= particleInfo[2*id + 1];\n"
+		"\tparticleInfo[2*id + 1] = currentVel + contribution(currentPos)*deltaTime;\n"
+		"\tparticleInfo[2*id] = particleInfo[2*id] + particleInfo[2*id+1]*deltaTime;\n}";
+	// maybe clamp vel?
+	particleShaderID = std::make_unique<ComputeShader>(computeShaderSource);
+	//Info(computeShaderSource);
+}
+
+void ComputeManager::UpdateParticles()
+{
+	int xGroupNum = (particlesNum + 64 - 1) / 64;
+	particleShaderID->Compute(xGroupNum,1,1, GL_SHADER_STORAGE_BARRIER_BIT);
+}
+
 
 void ComputeManager::SendSOjectsPos() {
 	// send in the positions and set buffer pos
