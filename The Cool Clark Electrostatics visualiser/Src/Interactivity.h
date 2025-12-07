@@ -24,12 +24,19 @@ public:
 	void OnLeftClick(int x, int y, int width, int height);
 	void onKeyPressDown(int key, int scancode, int action, int mods);
 	void MoveSelectedObject(float xOffset, float yOffset,int windowWidth, int windowHeight, Camera& cam);
-	template <typename objType, typename objTypeStruct>
-	void AddObject(SourceObject<objType, objType> obj);
 	void Resize(int width, int height);
+	void ImGuiWindow(float deltaTime);
+	void UpdateSeed();
 	unsigned int FBO, FBOtexture, FBRO;
-	unsigned int selectedObject= 0;
+	unsigned int selectedObject = 0;
+	int lastSelectedObject = -1;
 	unsigned int pickingShader = 0;
+	
+	// for dear imgui
+	glm::vec3 particlesNumv = glm::vec3(100);
+	glm::vec3 particlesGapv = glm::vec3(.01);
+	float particleSize = 0.7;
+
 	std::unordered_map<int, std::function<std::unique_ptr<ISourceObject>()>> KeyToObj{
 		{GLFW_KEY_P, [this]() { return std::make_unique<PointCharge>(cam->targetPos, 1, *commonShaders->basicShader); }},
 		{GLFW_KEY_C, [this]() { return std::make_unique<ChargedCircle>(cam->targetPos, 1, 1, *commonShaders->circleShader); }},

@@ -11,6 +11,9 @@ Renderer::Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>&
 	glGenVertexArrays(1, &VAO);
 	ParticlesShader = std::make_unique<Shader>("Src/Shaders/particle.vert",
 		"Src/Shaders/particle.frag");
+	ParticlesShader->UseProgram();
+	ParticlesShader->SetFloat("particleSize", 0.7);
+
 }
 
 Renderer::~Renderer()

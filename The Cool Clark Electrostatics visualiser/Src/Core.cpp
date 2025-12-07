@@ -1,9 +1,14 @@
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+
 #include <glad/glad.h>
 #include "Core.h"
 #include "utils.h"
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 
 #define VIS_TYPE STREAM_LINES
 
@@ -31,9 +36,14 @@ void Core::SetUp() {
 
 	// add objects
 	commonShaders = std::make_unique<CommonShaders>();
-	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0,0,-0.5), -1, *commonShaders->basicShader));
-	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0,0,0.5), 1, *commonShaders->basicShader));
-	sourceObjects.push_back(std::make_unique<InfiniteChargedLine>(glm::vec3(0,0,0), -5	, *commonShaders->lineShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(glm::vec3(0,0, -1.5), -1, .5, *commonShaders->circleShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(glm::vec3(0,0, -2.5), -1, .5, *commonShaders->circleShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(glm::vec3(0,0, -3.0), -1, .5, *commonShaders->circleShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(glm::vec3(0,0, -3.5), -1, .5, *commonShaders->circleShader));
+	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(1,1, -5), -10, *commonShaders->basicShader));
+	sourceObjects.push_back(std::make_unique<ChargedCircle>(glm::vec3(1, 1, -6.5), -5, .3, *commonShaders->circleShader));
+
+
 
 	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
 
@@ -55,9 +65,9 @@ void Core::SetUp() {
 	SetUpUniformBuffer();
 	UpdatePres();
 
-	// new  stuff
-	computeManager->InitParticles(glm::vec3(PARTICLES_NUM_X, PARTICLES_NUM_Y, PARTICLES_NUM_Z),
-		glm::vec3(PARTICLES_GAP));
+	// summon particles
+	//computeManager->InitParticles(glm::vec3(PARTICLES_NUM_X, PARTICLES_NUM_Y, PARTICLES_NUM_Z),
+		//glm::vec3(PARTICLES_GAP));
 
 }
 
@@ -69,7 +79,12 @@ void Core::MainLoop() {
 		glClearColor(0.0, 0.0, 0.0, 1.0); // now we're in dark modes
 		double _time = glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		
+
+		// dear imgui update frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		// movement example
 		//sourceObjects[0]->MoveTo(glm::vec3(.5 * cos(_time),   .5*sin(_time), sin(_time)));
 		//sourceObjects[1]->MoveTo(glm::vec3(-.5 * cos(_time), -.5 * sin(_time),cos(_time)));
@@ -82,7 +97,7 @@ void Core::MainLoop() {
 
 		// COMPUTE PART
 		computeManager->Compute();
-		if(interactionManager->timePlay)
+		if(interactionManager->timePlay) // update particles
 			computeManager->UpdateParticles();
 		// RENDER  PART
 		if(interactionManager->showVis)
@@ -90,13 +105,23 @@ void Core::MainLoop() {
 		renderer->VisualiseParticles(PARTICLES_NUM_X * PARTICLES_NUM_Y * PARTICLES_NUM_Z);
 		renderer->DrawShapes();
 
+		// show dear imgui window
+		ImGui::Begin("Interaction Window");
+		interactionManager->ImGuiWindow(deltaTime);
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		// ETC
 		glfwSwapBuffers(window);
 		HandleIKeyboardInput();
-		glfwPollEvents();
+
 
 		deltaTime = glfwGetTime() - _time;
 		//Info(std::to_string(1/deltaTime)); // see frames
+
+		glfwPollEvents();
 	}
 }
 
@@ -152,6 +177,16 @@ Core::Core(int width, int height, const char* title):
 	glEnable(GL_PROGRAM_POINT_SIZE);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// integrating dear imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 430");
+
 }
 
 void Core::SetUpUniformBuffer() {
@@ -178,7 +213,9 @@ void Core::UpdatePres()
 
 Core::~Core()
 {
-
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 }
 
 //					---------- the callbacks ----------

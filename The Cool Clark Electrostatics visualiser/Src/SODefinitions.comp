@@ -38,12 +38,6 @@ void PointChargeDistributePoints(PointCharge pointcharge, int i_abs, int i, int 
 	float radius = sqrt(R*R-y*y);
 	float x = radius * cos(theta);
 	float z = radius * sin(theta);
-	// get it there!!
-	//float theta = i * PI * (3.0f - sqrt(5.0f));
-	//float R = 0.05f;
-	//float x = R * cos(theta);
-	//float y = R * sin(theta);
-	//float z = 0;
 	calculatedPos[stepAmount*i_abs] = pointcharge.position + vec3(x, y, z);
 }
 

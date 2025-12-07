@@ -1,5 +1,6 @@
 #include "Interactivity.h"
 #include <functional>
+#include "imgui/imgui.h"
 
 // CONTROLS:
 //	-    MOUSE:	shift right drag -> move camera
@@ -11,6 +12,7 @@
 //  -         : control {X OR Y OR Z} -> lock into plane
 //  -         : SPACE -> stop time
 //  -         : TAB   -> show/hide visualisation
+//  -         : D   -> delete slected
 
 InteractionManager::InteractionManager(std::vector<std::unique_ptr<ISourceObject>>& sourceObjects, int width, int height,
 	std::unique_ptr<CommonShaders>& commonShaders, std::unique_ptr<ComputeManager>& computeManager,
@@ -96,6 +98,8 @@ void InteractionManager::OnLeftClick(int x, int y, int width, int height) {
 	selectedObject = float(pixels[0]) + float(pixels[1]) * 255 + float(pixels[2]) * 255 * 255;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0); // back
 	LeftMouseReleased = false;
+	// bellow zero currsponds to clicking nothing
+	if(selectedObject > 0) lastSelectedObject = selectedObject;
 }
 
 void InteractionManager::onKeyPressDown(int key, int scancode, int action, int mods)
@@ -107,12 +111,10 @@ void InteractionManager::onKeyPressDown(int key, int scancode, int action, int m
 	{
 		if (key == pair.first && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
 			sourceObjects.push_back(pair.second());
-			sourceObjects[sourceObjects.size() - 1]->seedNum = 5; // give it a default seed so it looks interesting
 			setPickingShader(*sourceObjects[sourceObjects.size() - 1]);
+			//sourceObjects[sourceObjects.size() - 1]->seedNum = 5; // give it a default seed so it looks interesting
 
-			computeManager->computeShaderID = std::make_unique<ComputeShader>(computeManager->GenerateComputeShaderSource()); // !!!! REGENERATE ENTIRE COMPUTE SHADER, currently mandatory!!!!
-			renderer->positionBuffer = computeManager->positionBuffer;
-			renderer->pointNum = computeManager->pointNum;
+			UpdateSeed();
 		}
 	}
 
@@ -127,6 +129,16 @@ void InteractionManager::onKeyPressDown(int key, int scancode, int action, int m
 
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) timePlay = !timePlay;
 	if (key == GLFW_KEY_TAB   && action == GLFW_PRESS) showVis= !showVis;
+
+	
+	if (key == GLFW_KEY_D && action == GLFW_PRESS) {
+		// delete the object, also can't delete if there is only one object! won't fix
+		if (sourceObjects.size() == 1 || lastSelectedObject < 1) return;
+		sourceObjects.erase(sourceObjects.begin() + lastSelectedObject - 1);
+		pickingShaders.erase(pickingShaders.begin() + lastSelectedObject - 1);
+		UpdateSeed();
+		lastSelectedObject = -1;
+	}
 }
 
 void InteractionManager::MoveSelectedObject(float xOffset, float yOffset, int windowWidth, int windowHeight, Camera& cam)
@@ -156,6 +168,71 @@ void InteractionManager::Resize(int width, int height)
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void UpdateObjectCharge(ComputeManager &computeManager, ISourceObject &obj) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, computeManager.objectsSSBO);
+	int index = obj.uniqueId * obj.GetStructSize() + obj.buffer_pos;
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, index + sizeof(glm::vec3), sizeof(float), &obj.charge);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	Info("pos is " + std::to_string(index));
+}
+
+void InteractionManager::ImGuiWindow(float deltaTime)
+{
+	int objID = lastSelectedObject - 1;
+	//if (objID < 0) {
+		//return;
+	//}
+
+
+	ImGui::Text(std::to_string(1 / deltaTime).c_str());
+	if(objID >= 0 && ImGui::TreeNode("Selected Object")){
+
+		ImGui::Text(("Selected ID: " + 
+			sourceObjects[objID]->typeID + std::to_string(sourceObjects[objID]->uniqueId)).c_str());
+		glm::vec3 pos =  sourceObjects[objID]->GetPos();
+		if (ImGui::InputFloat3("Position", &pos.x))
+			sourceObjects[objID]->MoveTo(pos);
+
+		if (ImGui::InputFloat("Charge", &sourceObjects[objID]->charge))
+		{
+			UpdateObjectCharge(*computeManager, *sourceObjects[objID]);
+			UpdateSeed();
+		}
+		
+		if (ImGui::InputInt("Seed Number", &sourceObjects[objID]->seedNum))
+			UpdateSeed();
+
+		ImGui::TreePop();
+	}
+
+	if(ImGui::TreeNode("Visualisation Settings")) {
+		ImGui::Checkbox("Dashed Stream Lines", &renderer->dashed);
+		if(ImGui::TreeNode("particles")) {
+			ImGui::InputFloat3("Particles Num", &particlesNumv.x);
+			ImGui::InputFloat3("Particles Gap", &particlesGapv.x);
+			if (ImGui::SliderFloat("Particle Size", &particleSize, 0, 10)) {
+				renderer->ParticlesShader->UseProgram();
+				renderer->ParticlesShader->SetFloat("particleSize", particleSize);
+			}
+			if (ImGui::Button("Reset Particles")) 
+				computeManager->InitParticles(particlesNumv, particlesGapv);
+
+			if (ImGui::SmallButton("Delete Particles")) {
+				computeManager->InitParticles(glm::vec3(0), glm::vec3(0));
+			}
+			ImGui::TreePop();
+		}
+		ImGui::TreePop();
+	}
+}
+
+void InteractionManager::UpdateSeed()
+{
+	computeManager->computeShaderID = std::make_unique<ComputeShader>(computeManager->GenerateComputeShaderSource()); // !!!! REGENERATE ENTIRE COMPUTE SHADER, currently mandatory!!!!
+	renderer->positionBuffer = computeManager->positionBuffer;
+	renderer->pointNum = computeManager->pointNum;
 }
 
 void InteractionManager::SetLeftMouseRelease(bool val)

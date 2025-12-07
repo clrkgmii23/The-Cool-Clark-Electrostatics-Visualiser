@@ -1,6 +1,15 @@
 ﻿add_executable(CMakeTarget "Src/The Cool Clark Electrostatics Visualiser.cpp"
 "Src/glad.c" "Src/Core.cpp" "Src/Shader.cpp" "Src/utils.cpp" "Src/SourceObjects.h" "Src/ComputeManager.cpp" 
-"Src/Renderer.cpp" "Src/Camera.cpp" "Src/Interactivity.cpp")
+"Src/Renderer.cpp" "Src/Camera.cpp" "Src/Interactivity.cpp"
+
+"Third Party Libraries/include/imgui/imgui.cpp"
+"Third Party Libraries/include/imgui/imgui_draw.cpp"
+"Third Party Libraries/include/imgui/imgui_draw.cpp"
+"Third Party Libraries/include/imgui/imgui_impl_glfw.cpp"
+"Third Party Libraries/include/imgui/imgui_impl_opengl3.cpp"
+"Third Party Libraries/include/imgui/imgui_tables.cpp"
+"Third Party Libraries/include/imgui/imgui_widgets.cpp"
+)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET CMakeTarget PROPERTY CXX_STANDARD 20)

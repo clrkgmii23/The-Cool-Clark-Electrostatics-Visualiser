@@ -213,19 +213,20 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 		"\tint i = int(gl_GlobalInvocationID.x);\n";
 
 	computeShaderSource += "int stepAmount = " + std::to_string(stepNum) + ";\n";
-	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n"; // TODO: not constant
+	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n";
 
 	int n_0 = 0;
 	std::unordered_map<std::string, int> objectInfo;
 	for (size_t i = 0; i < sourceObjects.size(); i++)
 	{
-		if (sourceObjects[i]->charge > 0) {
-			std::string nameID = sourceObjects[i]->typeID;
+		std::string nameID = sourceObjects[i]->typeID;
+		if (sourceObjects[i]->charge > 0 && sourceObjects[i]->seedNum > 0) {
 			int n_1 = n_0 + sourceObjects[i]->seedNum;
 			seedingComputeShaderSource += "\tif( " + std::to_string(n_0) + " <= i && i < " + std::to_string(n_1) + "){\n"
-				"\t\t" + nameID + "DistributePoints(" + nameID + "s[" + std::to_string(objectInfo[nameID]++) + "], i, i - " + std::to_string(n_0) + ", " + std::to_string(n_1 - n_0) + "); \n\t }\n";
+				"\t\t" + nameID + "DistributePoints(" + nameID + "s[" + std::to_string(objectInfo[nameID]) + "], i, i - " + std::to_string(n_0) + ", " + std::to_string(n_1 - n_0) + "); \n\t }\n";
 			n_0 = n_1;
 		}
+		objectInfo[nameID]++;
 	}
 
 	seedingComputeShaderSource += "}";
@@ -288,6 +289,7 @@ void ComputeManager::InitParticles(glm::vec3 particlesNums, glm::vec3 particlesG
 //this function relies on typeinfos!
 void ComputeManager::CreateParticleShader(std::string computeShaderSource)
 {
+	// compute shader to move particles
 	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n";
 
 	computeShaderSource += 

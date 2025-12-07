@@ -10,13 +10,13 @@ layout (std140, binding = 0) uniform Matrices{
 };
 
 flat out int instanceID;
-
+uniform float particleSize;
 void main(){
 	int id = gl_InstanceID;
 	vec3 pos = particleInfo[2*id];
 	vec4 viewPos = view * vec4(pos, 1);
 	gl_Position = prespective * viewPos;
-	gl_PointSize = clamp(0.7/-viewPos.z, .5, 2);
+	gl_PointSize = clamp(particleSize/-viewPos.z, .5, 200);
 	//gl_PointSize = .7;
 
 	instanceID = id;

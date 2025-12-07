@@ -11,5 +11,6 @@ flat in int instanceID;
 void main(){
 	int id = instanceID;
 
-	FragColor = vec4(particleInfo[2*id+1], 1);
+	FragColor = vec4(particleInfo[2*id+1], 1); // color with velocity direction
+	//FragColor = vec4(1,1,1, 1); // solid color
 }
