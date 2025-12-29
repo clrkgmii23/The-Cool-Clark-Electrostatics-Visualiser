@@ -22,13 +22,13 @@ class ComputeManager {
 public:
 	visType vistype;
 	std::vector<std::unique_ptr<ISourceObject>>& sourceObjects;
-	glm::vec3 gridSize = glm::vec3(0);
-	glm::vec3 gridGap  = glm::vec3(0);
+	glm::vec3 gridSize = glm::vec3(32);
+	glm::vec3 gridGap  = glm::vec3(.1);
 
-	int stepNum = 60;
+	int stepNum = 300;
 	int pointNum = 0;
 
-	float streamLinesdeltaTime = 0;
+	float streamLinesdeltaTime = 0.01;
 	unsigned int positionBuffer = 0; // buffer for grid vector positions
 	unsigned int objectsSSBO = 0; //buffer for source objects and their properties
 	unsigned int particlesSSBO = 0; //buffer particles vel and pos
@@ -47,14 +47,16 @@ public:
 	int particlesNum = 0;
 	glm::vec3 particlesGap = glm::vec3(1);
 
+	std::string fieldType = "ElectricField";
+
 	ComputeManager(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects);
 	std::string GenerateComputeShaderSource();
-	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
-	void ConfigureStreamLines(int stepNum, float streamLinesdeltaTime);
+	void ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(-1), glm::vec3 _gridGap = glm::vec3(-1));
+	void ConfigureStreamLines(int _stepNum = -1, float _streamLinesdeltaTime = -1);
 	void Compute();
 
 	void CreateParticleShader(std::string computeShaderSource);
-	void UpdateParticles();
+	void UpdateParticles(float deltaTime);
 	void InitParticles(glm::vec3 particleNums, glm::vec3 particlesGap);
 
 private:

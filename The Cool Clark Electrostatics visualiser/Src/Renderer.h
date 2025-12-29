@@ -22,16 +22,16 @@ public:
 	unsigned int stepNum = 0;
 	unsigned int pointNum = 0;
 	std::unique_ptr<Shader> ParticlesShader;
-	bool dashed = true;
+	bool dashed = false;
 	Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
 		unsigned int positionBuffer);
 	~Renderer();
 	void Visualise();
 	void VisualiseParticles(int numParticles);
 	void VisualiseGrid3D();
-	void ConfigureGrid3D(glm::vec3 gridSize, glm::vec3 gridGap);
+	void ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(-1), glm::vec3 _gridGap = glm::vec3(-1));
 	void VisualisStreamLines();
-	void ConfigureStreamLines(int stepNum, int pointNum);
+	void ConfigureStreamLines(int _stepNum = -1, float _streamLinesdeltaTime = -1);
 	void DrawShapes();
 
 private:

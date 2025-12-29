@@ -1,0 +1,217 @@
+// this file is going to serve as a container for all the compute shader function that will be used
+// in this program, and it should follow the convention of having a struct of an obeject defined,
+// and right after it corrospoding function, ei its electric field, its magnetic field or potential.
+// the struct needs to exist before the definitions, in order to generate the full compute shader 
+// correctly. the end of a struct must end with "};" and a function must end with a single "}"
+
+#version 430 core // these are here just to make the linter not red and angry
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
+
+float k = 8.99e9;
+float e_0 = 8.854e-12;
+float u_0 = 1.2566e-6;
+float PI = 3.14159265359;
+
+//											Point Charge								//
+struct PointCharge{ // this will take 32 bytes
+	vec3 position;
+	float charge;
+};
+//
+vec3 PointChargeElectricField(PointCharge pointcharge, vec3 gridPos){
+	float r = distance(gridPos, pointcharge.position);
+	if (r < 0.001) return vec3(0);
+	vec3 u = vec3(gridPos.x - pointcharge.position.x, gridPos.y - pointcharge.position.y,
+	gridPos.z - pointcharge.position.z)/r;
+	float E = k*pointcharge.charge/(r*r);
+	return E*vec3(u);
+}
+vec3 PointChargeMagneticField(PointCharge pointcharge, vec3 gridPos){
+	return vec3(0); // point charges will not contribute to the magnetic field, i am not adding a velocity to anything:)
+}
+
+layout(binding = 0, std430) buffer positionBuffer {
+        vec3 calculatedPos[];
+};
+
+int stepAmount = 10;
+void PointChargeDistributePoints(PointCharge pointcharge, int i_abs, int i, int n){
+	float theta = i * PI * (3-sqrt(5));
+	float R = 0.05;
+	float y = R*(1-float(i)/(n-1) * 2);
+	float radius = sqrt(R*R-y*y);
+	float x = radius * cos(theta);
+	float z = radius * sin(theta);
+	calculatedPos[stepAmount*i_abs] = pointcharge.position + vec3(x, y, z);
+}
+
+//									  Infinite Charged Line								//
+
+struct InfiniteChargedLine{
+	vec3 position;
+	float charge;
+};
+//
+vec3 InfiniteChargedLineElectricField(InfiniteChargedLine infiniteChargedLine, vec3 gridPos){
+	vec3 vecFromLtoP = (gridPos - infiniteChargedLine.position);
+	vecFromLtoP.y = 0;
+	float r = length(vecFromLtoP);
+	vec3 u = normalize(vecFromLtoP);
+	if (r < 0.001) return vec3(0);
+	float E = infiniteChargedLine.charge/(2*PI*e_0*r); 
+	return E*vec3(u);
+}
+// let's consider the charge value here as the current going from down to up on this line
+vec3 InfiniteChargedLineMagneticField(InfiniteChargedLine infiniteChargedLine, vec3 gridPos){
+	vec3 vecFromLtoP = (gridPos - infiniteChargedLine.position);
+	vecFromLtoP.y = 0;
+	float r = length(vecFromLtoP);
+	vec3 u = normalize(cross(vecFromLtoP, vec3(0,1,0)));
+	if (r < 0.001) return vec3(0);
+	float B = infiniteChargedLine.charge*u_0/(2*PI*r); 
+	return B*vec3(u);
+}
+
+void InfiniteChargedLineDistributePoints(InfiniteChargedLine infiniteChargedLine, int i_abs, int i, int n){
+	
+	calculatedPos[stepAmount*i_abs] = infiniteChargedLine.position + 0.01*vec3(cos(i*2*PI/n), 0, sin(i*2*PI/n));
+}
+//											Charged Circle								//
+
+struct ChargedCircle{ // this will take 32 bytes
+	vec3 position;
+	float charge;
+	float radius;
+};
+//
+vec3 ChargedCircleElectricField(ChargedCircle chargedcircle, vec3 gridPos){
+	// E = Rdthtea/r^3 u
+	vec3 E = vec3(0);
+	float R = chargedcircle.radius;
+
+	// integrating over the circle, approximation
+	int N = 20; // number of segments
+	float dTheta = 2*PI/N;
+	for (int i = 0; i < N; i++){
+		float theta = i*dTheta;
+		vec3 u = vec3(	gridPos.x - chargedcircle.position.x - R*cos(theta),
+						gridPos.y - chargedcircle.position.y - R*sin(theta),
+						gridPos.z - chargedcircle.position.z);
+		float r = length(u);
+		if (r < 0.0001) continue;
+		E += R*dTheta/(r*r*r) * u;
+	}
+	return k*chargedcircle.charge * E;  // test difference
+}
+
+vec3 ChargedCircleMagneticField(ChargedCircle loop, vec3 gridPos) {
+    vec3 B = vec3(0);
+    float R = loop.radius;
+    int N = 100;
+    float dTheta = 2.0 * PI / float(N);
+
+    for (int i = 0; i < N; i++) {
+        float theta = i * dTheta;
+        
+        vec3 segmentPos = vec3(
+            loop.position.x + R * cos(theta),
+            loop.position.y + R * sin(theta),
+            loop.position.z
+        );
+        
+        vec3 dL = vec3(
+            -R * sin(theta) * dTheta,
+             R * cos(theta) * dTheta,
+             0.0
+        );
+        vec3 r = gridPos - segmentPos;
+        float rLen = length(r);
+        if (rLen < 0.0001) continue;
+
+        B += (u_0 * loop.charge / (4.0 * PI)) * cross(dL, r) / (rLen * rLen * rLen);
+    }
+
+    return B;
+}
+
+
+void ChargedCircleDistributePoints(ChargedCircle chargedCircle, int i_abs, int i, int n){
+	
+	calculatedPos[stepAmount*i_abs] = chargedCircle.position + chargedCircle.radius *1.1 *vec3(cos(i*2*PI/n), sin(i*2*PI/n), 0);
+}
+
+//								       	Infinite Charged Cylinder       						//
+
+struct InfiniteChargedCylinder{
+	vec3 position;
+	float radius;
+	float charge;
+};
+
+// let's consider it to be a volumetrically charged cylinder with cyl.charge being the charge density
+vec3 InfiniteChargedCylinderElectricField(InfiniteChargedCylinder cyl, vec3 gridPos){
+	vec3 uVec = gridPos-cyl.position;
+	uVec.y = 0;
+	vec3 u = normalize(uVec);
+	float r = length(uVec);
+	float strength = cyl.charge * (cyl.radius*cyl.radius)/(2*e_0*r);
+	return strength*u;
+}
+
+vec3 InfiniteChargedCylinderMagneticField(InfiniteChargedCylinder cyl, vec3 gridPos){
+	vec3 vecFromLtoP = (gridPos - cyl.position);
+	vecFromLtoP.y = 0;
+	float r = length(vecFromLtoP);
+	vec3 u = normalize(cross(vecFromLtoP, vec3(0,1,0)));
+	if (r < 0.001) return vec3(0);
+	float B = cyl.charge*u_0/(2*PI*r); 
+	return B*vec3(u);
+}
+
+void InfiniteChargedCylinderDistributePoints(InfiniteChargedCylinder cyl, int i_abs, int i, int n){
+	calculatedPos[stepAmount*i_abs] = cyl.position + cyl.radius *1.1 *vec3(cos(i*2*PI/n),(i-n/2)%(n/2), sin(i*2*PI/n));
+}
+//								       	Infinite Charged Cylinder       						//
+
+struct ChargedSphere{
+	vec3 position;
+	float charge;
+	float radius;
+};
+
+// only considering the case where radius > R
+vec3 ChargedSphereElectricField(ChargedSphere sphere, vec3 gridPos){
+	vec3 uVec = gridPos-sphere.position;
+	vec3 u = normalize(uVec);
+	float r = length(uVec);
+	float strength = sphere.charge*(sphere.radius*sphere.radius*sphere.radius)/(3*e_0*r*r);
+	return strength*u;
+}
+
+// let's say we have current (i will just use sphere.charge for its value, again) flowing through the surface of this sphere along the y axis
+// we will only consider outside the sphere, which behaves like a magnetic dipole!
+vec3 ChargedSphereMagneticField(ChargedSphere sphere, vec3 gridPos){
+    vec3 vec = gridPos - sphere.position;
+    float r = length(vec);
+    if (r < 0.001) return vec3(0);
+
+    vec3 rHat = normalize(vec);
+
+    vec3 m = vec3(0, sphere.charge * sphere.radius * sphere.radius, 0);
+
+    vec3 B = (u_0 / (4.0 * PI * r*r*r)) * (3.0 * dot(m, rHat) * rHat - m);
+
+    return B;
+}
+
+
+void ChargedSphereDistributePoints(ChargedSphere sphere, int i_abs, int i, int n){
+	// this again
+	float theta = i * PI * (3-sqrt(5));
+	float R = sphere.radius;
+	float y = R*(1-float(i)/(n-1) * 2);
+	float radius = sqrt(R*R-y*y);
+	float x = radius * cos(theta);
+	float z = radius * sin(theta);
+	calculatedPos[stepAmount*i_abs] = sphere.position + vec3(x, y, z);
+}

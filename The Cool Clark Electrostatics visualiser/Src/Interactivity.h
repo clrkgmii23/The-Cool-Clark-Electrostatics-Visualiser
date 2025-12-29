@@ -26,7 +26,7 @@ public:
 	void MoveSelectedObject(float xOffset, float yOffset,int windowWidth, int windowHeight, Camera& cam);
 	void Resize(int width, int height);
 	void ImGuiWindow(float deltaTime);
-	void UpdateSeed();
+	void UpdateShader();
 	unsigned int FBO, FBOtexture, FBRO;
 	unsigned int selectedObject = 0;
 	int lastSelectedObject = -1;
@@ -40,13 +40,15 @@ public:
 	std::unordered_map<int, std::function<std::unique_ptr<ISourceObject>()>> KeyToObj{
 		{GLFW_KEY_P, [this]() { return std::make_unique<PointCharge>(cam->targetPos, 1, *commonShaders->basicShader); }},
 		{GLFW_KEY_C, [this]() { return std::make_unique<ChargedCircle>(cam->targetPos, 1, 1, *commonShaders->circleShader); }},
-		{GLFW_KEY_L, [this]() { return std::make_unique<InfiniteChargedLine>(cam->targetPos, 1, *commonShaders->lineShader); }}
+		{GLFW_KEY_L, [this]() { return std::make_unique<InfiniteChargedLine>(cam->targetPos, 1, *commonShaders->lineShader); }},
+		{GLFW_KEY_R, [this]() { return std::make_unique<InfiniteChargedCylinder>(cam->targetPos, 1, 1, *commonShaders->cylinderShader); }},
+		{GLFW_KEY_S, [this]() { return std::make_unique<ChargedSphere>(cam->targetPos, 1, 1, *commonShaders->sphereShader); }}
 	};
 
 	bool LeftMouseReleased = true;
 	void SetLeftMouseRelease(bool val);
 	bool showVis = true;
 	bool timePlay = false;
-
+	int selectedField = 0;
 	glm::vec3 lockAxis = glm::vec3(1);
 };

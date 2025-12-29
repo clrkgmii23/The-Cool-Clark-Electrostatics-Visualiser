@@ -1,6 +1,7 @@
 #pragma once
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include "Shader.h"
 #include "fstream"
 #include "utils.h"
@@ -291,6 +292,12 @@ public:
 	}
 };
 
+struct IHasRadius {
+	float radius = 0.3;
+	virtual float& getRadius() = 0;
+};
+
+
 //-------------------------------------- CHARGED CIRCLE --------------------------------------//
 
 struct alignas(16) ChargedCircleStruct {
@@ -299,45 +306,234 @@ struct alignas(16) ChargedCircleStruct {
 	float radius;
 };
 // TODO: instead of rendering it with lines, use the fragment shader to draw a circle from a quad, like what you did for point charges
-class ChargedCircle : public SourceObject<ChargedCircle, ChargedCircleStruct> {
+class ChargedCircle : public SourceObject<ChargedCircle, ChargedCircleStruct>, public IHasRadius {
 public:
 	// properties
-	float radius = 0.5;
+	float radius = .1;
+	int N = 25;
 	ChargedCircle(glm::vec3 pos, float charge, float radius, Shader& shader)
 		: SourceObject<ChargedCircle, ChargedCircleStruct>(pos, shader), radius(radius) {
 		typeID = "ChargedCircle";
 		this->charge = charge;
 	}
 
+	float& getRadius() override{
+		return radius;
+	}
+
 	void initialSetUp() {
+		N = 50; // resolution of the circle, can't get it out of here:(
 		std::vector<float> vertices;
 		const float pi = 3.14159265359;
-		// TODO: don't hard code 100 here
-		const int N = 100;
-		for (int i = 0; i < 4 * N + 2; i++)
+		// TODO: don't hard code this
+		for (int i = 0; i <= N; i++)
 		{
-			float angle = (2 * pi) * i / N;
+			float angle = ((2 * pi) * i )/ N;
 			vertices.push_back(cos(angle));
 			vertices.push_back(sin(angle));
 			vertices.push_back(0);
 		}
+		AfterSetUp(vertices.size()*sizeof(float), vertices.data(), 0, nullptr);
+	}
 
-		AfterSetUp(vertices.size(), vertices.data(), 0, nullptr);
+	void Draw(bool useOwnShader = true) override {
+		N = 50;
+		glBindVertexArray(VAO);
+		if (useOwnShader)
+			shader.UseProgram();
+		shader.SetVec3("position", pos);
+		shader.SetFloat("radius", this->radius);
+		glDrawArrays(GL_LINE_STRIP, 0, N+1);
+		glBindVertexArray(0);
+	}
+
+	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
+		ChargedCircleStruct chargedCircle = { pos, charge, radius };
+		int size = GetStructSize();
+
+		this->store(buffer, buf_pos, own_pos, size, &chargedCircle);
+	}
+};
+
+
+//--------------------------------- Infinite Charged Cylinder ---------------------------------//
+
+struct alignas(16) InfiniteChargedCylinderStruct{ // this will take 32 bytes
+	glm::vec3 position;
+	float radius;
+	float charge;
+};
+
+class InfiniteChargedCylinder : public SourceObject<InfiniteChargedCylinder, InfiniteChargedCylinderStruct>, public IHasRadius {
+public:
+	// properties
+	float radius = .5;
+	int N = 25;
+	InfiniteChargedCylinder(glm::vec3 pos, float charge, float radius, Shader& shader)
+		: SourceObject<InfiniteChargedCylinder, InfiniteChargedCylinderStruct>(pos, shader), radius(radius) {
+		typeID = "InfiniteChargedCylinder";
+	}
+
+	float& getRadius() override {
+		return radius;
+	}
+
+	void initialSetUp() {
+		N = 50;
+
+		std::vector<float> vertices;
+		const float pi = 3.14159265359;
+		// confusing code that i just worked out in a notebook so my future self can't debug these cryptic lines
+		float h = 200; // height of our cylinder, temp before making it really infinite somehow
+		// first circle
+		for (int i = 0; i < N; i++)
+		{
+			float angle = ((2 * pi) * i) / N;
+			vertices.push_back(cos(angle));
+			vertices.push_back(h);
+			vertices.push_back(sin(angle));
+		}
+
+		//second circle
+		for (int i = 0; i < N; i++)
+		{
+			float angle = ((2 * pi) * i) / N;
+			vertices.push_back(cos(angle));
+			vertices.push_back(-h);
+			vertices.push_back(sin(angle));
+		}
+		// indexing
+		std::vector<unsigned int> indices;
+
+		// caps, why would an infinite cylinder have caps?
+		/*for (size_t i = 0; i < N-1; i++)
+		{
+
+			indices.push_back(i);
+			indices.push_back(i + 1);
+			indices.push_back(0);
+
+			indices.push_back(i + N);
+			indices.push_back(i + N+1);
+			indices.push_back(N);
+
+		}*/
+
+		for (size_t i = 0; i < N; i++) {
+			indices.push_back(i);
+			indices.push_back((i +1)%N);
+			indices.push_back((i + 1) % N + N);
+
+			indices.push_back(i);
+			indices.push_back(i + N);
+			indices.push_back((i + 1)%N + N);
+		}
+		
+		AfterSetUp(vertices.size() * sizeof(float), vertices.data(), indices.size()*sizeof(float), indices.data());
+	}
+	void Draw(bool useOwnShader = true) override{
+		glBindVertexArray(VAO);
+		if (useOwnShader)
+			shader.UseProgram();
+		shader.SetVec3("position", pos);
+		shader.SetFloat("radius", this->radius);
+		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+
+	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
+
+		InfiniteChargedCylinderStruct cylinder = { pos, radius, charge };
+		int size = GetStructSize();
+
+		this->store(buffer, buf_pos, own_pos, size, &cylinder);
+	}
+};
+
+//-------------------------------------- CHARGED SPHERE --------------------------------------//
+
+struct alignas(16) ChargedSphereStruct {
+	glm::vec3 position;
+	float charge;
+	float radius;
+};
+
+class ChargedSphere : public SourceObject<ChargedSphere, ChargedSphereStruct>, public IHasRadius {
+public:
+	// properties
+	float radius = .1;
+	int N1 = 5;
+	int N2 = 5;
+	ChargedSphere(glm::vec3 pos, float charge, float radius, Shader& shader)
+		: SourceObject<ChargedSphere, ChargedSphereStruct>(pos, shader), radius(radius) {
+		typeID = "ChargedSphere";
+		this->charge = charge;
+	}
+
+	float& getRadius() override {
+		return radius;
+	}
+
+	void initialSetUp() {
+		N1 = 50;
+		N2 = 50;
+		std::vector<float> vertices;
+		std::vector<unsigned int> indices;
+		const float pi = 3.14159265359;
+		// spherical coords
+		// x = rsinphi costheta
+		// y = rsinphi sintheta
+		// z = rcosphi
+		
+		for (int theta = 0; theta < N1; theta++)
+		{
+			float angleTheta = ((2 * pi) * theta) / N1;
+			for (int phi = 0; phi < N2; phi++)
+			{
+				// vertices
+				float anglePhi = (pi * phi) / (N2 - 1);
+
+
+				float x = sin(anglePhi) * cos(angleTheta);
+				float y = sin(anglePhi) * sin(angleTheta);
+				float z = cos(anglePhi);
+
+				vertices.push_back(x);
+				vertices.push_back(y);
+				vertices.push_back(z);
+
+				// indices
+				if (phi >= N2-1) continue;
+
+				unsigned int current = theta*N2 + phi;
+				unsigned int next = ((theta+1)%N1) *N2 + phi;
+
+
+				indices.push_back(current);
+				indices.push_back(next);
+				indices.push_back(current+1);
+
+				indices.push_back(current+1);
+				indices.push_back(next);
+				indices.push_back(next+1);
+			}
+		}
+
+		AfterSetUp(vertices.size() * sizeof(float), vertices.data(), indices.size() * sizeof(unsigned int), indices.data());
 	}
 
 	void Draw(bool useOwnShader = true) override {
 		glBindVertexArray(VAO);
 		if (useOwnShader)
 			shader.UseProgram();
-		const int N = 100;
 		shader.SetVec3("position", pos);
 		shader.SetFloat("radius", this->radius);
-		glDrawArrays(GL_LINE_STRIP, 0, N + 1);
+		glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
 
 	void StoreInBuffer(unsigned int buffer, int buf_pos, int own_pos) override {
-		ChargedCircleStruct chargedCircle = { pos, charge, radius };
+		ChargedSphereStruct chargedCircle = { pos, charge, radius };
 		int size = GetStructSize();
 
 		this->store(buffer, buf_pos, own_pos, size, &chargedCircle);

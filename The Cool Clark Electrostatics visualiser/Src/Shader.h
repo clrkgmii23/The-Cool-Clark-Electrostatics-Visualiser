@@ -49,10 +49,14 @@ struct CommonShaders {
 	std::unique_ptr<Shader> basicShader;
 	std::unique_ptr<Shader> lineShader;
 	std::unique_ptr<Shader> circleShader;
+	std::unique_ptr<Shader> cylinderShader;
+	std::unique_ptr<Shader> sphereShader;
 
 	CommonShaders() {
 		basicShader = std::make_unique<Shader>("Src/Shaders/chargeShader.vert", "Src/Shaders/chargeShader.frag", true);
 		lineShader = std::make_unique <Shader>("Src/Shaders/simpleShader.vert", "Src/Shaders/simpleShader.frag", true);
 		circleShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/circleShader.frag", true);
+		cylinderShader= std::make_unique <Shader>("Src/Shaders/cylinderShader.vert", "Src/Shaders/cylinderShader.frag", true);
+		sphereShader = std::make_unique <Shader>("Src/Shaders/circleShader.vert", "Src/Shaders/sphereShader.frag", true);
 	}
 };

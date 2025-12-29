@@ -5,7 +5,7 @@
 
 
 Renderer::Renderer(visType vistype, std::vector<std::unique_ptr<ISourceObject>>& sourceObjects,
-	unsigned int positionBuffer) : vistype(vistype),sourceObjects(sourceObjects),
+	unsigned int positionBuffer) : vistype(vistype), sourceObjects(sourceObjects),
 	positionBuffer(positionBuffer),
 	VAO(0) {
 	glGenVertexArrays(1, &VAO);
@@ -66,14 +66,14 @@ void Renderer::VisualisStreamLines()
 {
 	visualiserShader->UseProgram();
 	glBindVertexArray(VAO);
-	glDrawArraysInstanced(dashed? GL_LINES: GL_LINE_STRIP, 0, stepNum, pointNum);
+	glDrawArraysInstanced(dashed ? GL_LINES : GL_LINE_STRIP, 0, stepNum, pointNum);
 	glBindVertexArray(0);
 }
 
-void Renderer::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::vec3 _gridGap = glm::vec3(0.5))
+void Renderer::ConfigureGrid3D(glm::vec3 _gridSize, glm::vec3 _gridGap)
 {
-	gridSize = _gridSize;
-	gridGap  = _gridGap;
+	gridSize = _gridSize != glm::vec3(-1) ? _gridSize : gridSize;
+	gridGap = _gridGap != glm::vec3(-1) ? _gridGap : gridGap;
 	visualiserShader = std::make_unique<Shader>("Src/Shaders/gridShader.vert", "Src/Shaders/gridShader.frag");
 	gridSizeN = gridSize.x * gridSize.y * gridSize.z;
 
@@ -83,9 +83,9 @@ void Renderer::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::vec3 _g
 	visualiserShader->SetVec3("gridGap", gridGap);
 }
 
-void Renderer::ConfigureStreamLines(int _stepNum, int _pointNum) {
-	stepNum = _stepNum;
-	pointNum = _pointNum;
+void Renderer::ConfigureStreamLines(int _stepNum, float _pointNum) {
+	stepNum = _stepNum > 0 ? _stepNum : stepNum;
+	pointNum = _pointNum > 0 ? _pointNum : pointNum;
 
 	visualiserShader = std::make_unique<Shader>("Src/Shaders/streamLines.vert", "Src/Shaders/streamLines.frag");
 

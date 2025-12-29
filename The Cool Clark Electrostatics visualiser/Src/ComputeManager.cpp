@@ -9,18 +9,19 @@ ComputeManager::ComputeManager(visType vistype, std::vector<std::unique_ptr<ISou
 {
 }
 
-void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize = glm::vec3(10), glm::vec3 _gridGap = glm::vec3(0.5)) {
+void ComputeManager::ConfigureGrid3D(glm::vec3 _gridSize, glm::vec3 _gridGap) {
 	if (vistype != GRID_3D) ErrorMessage("Trying To Configure Wrong VISTYPE");
-	gridSize = _gridSize;
-	gridGap = _gridGap;
+
+		gridSize = _gridSize != glm::vec3(-1) ? _gridSize:gridSize;
+		gridGap  = _gridGap  != glm::vec3(-1) ? _gridGap : gridGap;
 
 	computeShaderID = std::make_unique<ComputeShader>(GenerateComputeShaderSource());
 }
 
 void ComputeManager::ConfigureStreamLines(int _stepNum, float _streamLinesdeltaTime) {
 	if (vistype != STREAM_LINES) ErrorMessage("Trying To Configure Wrong VISTYPE");
-	stepNum = _stepNum;
-	streamLinesdeltaTime = _streamLinesdeltaTime;
+	stepNum = _stepNum > 0 ? _stepNum: stepNum;
+	streamLinesdeltaTime = _streamLinesdeltaTime > 0 ? _streamLinesdeltaTime : streamLinesdeltaTime;
 	computeShaderID = std::make_unique<ComputeShader>(GenerateComputeShaderSource());
 }
 
@@ -41,7 +42,7 @@ void ComputeManager::Compute()
 
 std::string ComputeManager::GenerateComputeShaderSource()
 {
-	// init, so we can regenerate any time (will change this so it doesn't create new ones everytime)
+	// init, so we can regenerate any time
 	if (positionBuffer > 0) {
 		glDeleteBuffers(1, &positionBuffer);
 	}
@@ -77,6 +78,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		"\tvec3 calculatedPos[];\n};\n\n"
 		"float k = 1; \n" // change as your heart's content
 		"float e_0 = 1; \n"
+		"float u_0 = 1; \n"
 		"float PI = 3.14159265359;\n"
 		"float PHI = 1.61803398874;\n";
 
@@ -87,7 +89,7 @@ std::string ComputeManager::GenerateComputeShaderSource()
 		bufsize += SObject->GetStructSize();
 		if (typeInfos.find(SObject->typeID) == typeInfos.end()) {
 			//if(vistype != STREAM_LINES) // TODO: this shader doesn't need the field functions, maybe seperate field functions and structs
-			computeShaderSource += SObject->FieldContribution("ElectricField");
+			computeShaderSource += SObject->FieldContribution(fieldType);
 			typeInfos[SObject->typeID].count = 1;
 			typeInfos[SObject->typeID].structSize = SObject->GetStructSize();
 			SObject->uniqueId = 0;
@@ -106,7 +108,6 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 	computeShaderSource += "};\n\n\n";
 
-	std::string fieldType = "ElectricField"; // TODO: you already know what to do
 	computeShaderSource +=
 		"\nvec3 contribution(vec3 pos){\n"
 		"\tvec3 res = vec3(0);\n";
@@ -139,12 +140,12 @@ std::string ComputeManager::GenerateComputeShaderSource()
 	}
 
 	//Info(computeShaderSource);
+	Info("Regenerated Compute Shader");
 
 	return computeShaderSource;
 }
 
 void ComputeManager::grid3dSource(std::string& computeShaderSource) {
-
 	unsigned int gridSizeN = gridSize.x * gridSize.y * gridSize.z;
 	glGenBuffers(1, &positionBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
@@ -176,7 +177,6 @@ std::string GetPartFromFile(const char* filePath, const std::string startStr, co
 	std::string funcDef;
 	std::string line;
 	bool found = false;
-	// function name is typeID + "ElectricField"
 	while (std::getline(file, line)) {
 		if (found) break; // break from the entire loop
 		if (line.compare(0, startStr.length(), startStr) == 0) {
@@ -232,7 +232,7 @@ void ComputeManager::StreamLinesSource(std::string& computeShaderSource) {
 	seedingComputeShaderSource += "}";
 
 	//Info(seedingComputeShaderSource);
-
+	// set up storage for all line points
 	glGenBuffers(1, &positionBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, positionBuffer);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, stepNum * pointNum * 4 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
@@ -290,7 +290,8 @@ void ComputeManager::InitParticles(glm::vec3 particlesNums, glm::vec3 particlesG
 void ComputeManager::CreateParticleShader(std::string computeShaderSource)
 {
 	// compute shader to move particles
-	computeShaderSource += "float deltaTime = " + std::to_string(streamLinesdeltaTime) + ";\n";
+	// maybe make deltaTime a uniform
+	computeShaderSource += "uniform float deltaTime;\n";
 
 	computeShaderSource += 
 		"layout(std430, binding = 2) buffer	particlesBuffer{\n\tvec3 particleInfo[];\n};\n\n"
@@ -301,12 +302,17 @@ void ComputeManager::CreateParticleShader(std::string computeShaderSource)
 		"\tparticleInfo[2*id + 1] = currentVel + contribution(currentPos)*deltaTime;\n"
 		"\tparticleInfo[2*id] = particleInfo[2*id] + particleInfo[2*id+1]*deltaTime;\n}";
 	// maybe clamp vel?
-	particleShaderID = std::make_unique<ComputeShader>(computeShaderSource);
+	
+	// correct the layout
+	computeShaderSource.replace(18, 67, "layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;");
 	//Info(computeShaderSource);
+	particleShaderID = std::make_unique<ComputeShader>(computeShaderSource);
 }
 
-void ComputeManager::UpdateParticles()
+void ComputeManager::UpdateParticles(float deltaTime)
 {
+	particleShaderID->UseProgram();
+	particleShaderID->SetFloat("deltaTime", deltaTime);
 	int xGroupNum = (particlesNum + 64 - 1) / 64;
 	particleShaderID->Compute(xGroupNum,1,1, GL_SHADER_STORAGE_BARRIER_BIT);
 }
