@@ -221,7 +221,6 @@ void InteractionManager::ImGuiWindow(float deltaTime){
 
 	if(ImGui::TreeNode("Visualisation Settings")) {
 		const char* modes[] = {"3d grid", "stream lines"};
-		const char* fields[] = {"ElectricField", "MagneticField"};
 		if (ImGui::Combo("Vis Mode", (int*)&computeManager->vistype, modes, 2)) {
 
 			renderer->vistype = computeManager->vistype;
@@ -235,7 +234,8 @@ void InteractionManager::ImGuiWindow(float deltaTime){
 				renderer->ConfigureStreamLines(computeManager->stepNum, computeManager->pointNum);
 			}
 		}
-		if (ImGui::Combo("Field", &selectedField, fields, 2)) {
+		if (ImGui::Combo("Field", &selectedField, fields, sizeof(fields) / sizeof(fields[0]))) {
+
 			computeManager->fieldType = fields[selectedField];
 			UpdateShader();
 		}

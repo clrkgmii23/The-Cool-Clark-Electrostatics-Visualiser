@@ -20,8 +20,8 @@
 #define GRID_GAP_Y .1
 #define GRID_GAP_Z .1
 
-#define STEP_SIZE 300
-#define STREAM_LINE_STEP_TIME 0.01
+#define STEP_SIZE 500
+#define STREAM_LINE_STEP_TIME 0.02
 
 #define PARTICLES_NUM_X 100
 #define PARTICLES_NUM_Y 100
@@ -36,9 +36,9 @@ void Core::SetUp() {
 
 	// add objects
 	commonShaders = std::make_unique<CommonShaders>();
-	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0, 0, 0), 1, *commonShaders->basicShader));
-	//sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(0, 0, 1), 1, *commonShaders->basicShader));
-	//sourceObjects.push_back(std::make_unique<ChargedSphere>(glm::vec3(0, 0, 0), 1, 1, *commonShaders->sphereShader));
+	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(-.5, 0, 0), 1, *commonShaders->basicShader));
+	sourceObjects[0]->seedNum = 20;
+	sourceObjects.push_back(std::make_unique<PointCharge>(glm::vec3(.5, 0, 0), -1, *commonShaders->basicShader));
 
 	computeManager = std::make_unique<ComputeManager>(VIS_TYPE, sourceObjects);
 

@@ -44,6 +44,7 @@ public:
 		{GLFW_KEY_R, [this]() { return std::make_unique<InfiniteChargedCylinder>(cam->targetPos, 1, 1, *commonShaders->cylinderShader); }},
 		{GLFW_KEY_S, [this]() { return std::make_unique<ChargedSphere>(cam->targetPos, 1, 1, *commonShaders->sphereShader); }}
 	};
+	const char* fields[2] = {"ElectricField", "MagneticField"};
 
 	bool LeftMouseReleased = true;
 	void SetLeftMouseRelease(bool val);

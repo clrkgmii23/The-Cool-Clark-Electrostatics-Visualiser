@@ -25,10 +25,10 @@ public:
 	glm::vec3 gridSize = glm::vec3(32);
 	glm::vec3 gridGap  = glm::vec3(.1);
 
-	int stepNum = 300;
+	int stepNum = 500;
 	int pointNum = 0;
 
-	float streamLinesdeltaTime = 0.01;
+	float streamLinesdeltaTime = 0.02;
 	unsigned int positionBuffer = 0; // buffer for grid vector positions
 	unsigned int objectsSSBO = 0; //buffer for source objects and their properties
 	unsigned int particlesSSBO = 0; //buffer particles vel and pos
